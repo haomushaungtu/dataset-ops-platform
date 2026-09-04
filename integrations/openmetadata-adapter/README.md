@@ -76,7 +76,7 @@ mvn test
 mvn clean package
 ```
 
-测试全部使用 Spring Mock HTTP/JWT 服务，不访问真实 IAM 或 OpenMetadata；覆盖 client credentials、不缓存 Token、创建属性定义、PATCH 后回读确认、跨数据集映射冲突，以及无 Token 401、错误 scope 403、正确机器 Token 200 且响应不泄露 Token/密钥。
+当前共 8 项测试通过。除 Spring Mock HTTP/JWT 覆盖外，`HttpClientConfigurationTests` 还启动真实回环 HTTP Server，验证基于 JDK `HttpClient` 的请求工厂能够实际发出 `PATCH`，防止退回到不支持 PATCH 的 `HttpURLConnection` 实现。其余测试覆盖 client credentials、不缓存 Token、创建属性定义、PATCH 后回读确认、跨数据集映射冲突，以及无 Token 401、错误 scope 403、正确机器 Token 200 且响应不泄露 Token/密钥；测试不访问真实 IAM 或 OpenMetadata。
 
 ## 真实集成门
 
@@ -87,3 +87,9 @@ mvn clean package
 3. 先用合成 Table 验证五个属性的创建权限、PATCH、回读、搜索索引可见性和错误 audience/scope 拒绝。
 4. platform-service 增加 Outbox 消费器，将成功响应持久化到 `external_resource_mapping`；失败记录下一次重试时间，耗尽后进入运营告警。
 5. 真实联调证据只记录 request ID、业务 ID、OpenMetadata entity ID/version 和 HTTP 结果，不记录 client secret、access token 或完整受限数据。
+
+### 2026-09-04 真实 E2E 状态
+
+139 原生环境的技术链路已经通过：机器 Token 可直接访问 OpenMetadata；适配器无 Token 返回 401；合成 Table 完成五个自定义属性定义、PATCH、精确回读、幂等重放、跨数据集冲突 409 与原映射保持、搜索索引可见，以及 API/索引清理。该结果证明第 1～3 项的技术路径可行，但当前 OpenMetadata 机器服务账号为 PoC 临时 `admin`，尚未收敛到仅可读取 Table 和维护五个自定义属性的最小权限，因此不能将生产权限门标记为完成。
+
+第 4 项平台 Outbox 消费器及 `external_resource_mapping` 持久化仍待实现；在此之前，真实 E2E 通过只代表适配器技术切片通过，不代表平台端到端可靠投递、重试和运营告警已经完成。

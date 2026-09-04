@@ -1,0 +1,20 @@
+[Unit]
+Description=Dataset Foundry OpenMetadata 1.13.0 PoC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dfmetadata
+Group=dfpoc
+SupplementaryGroups=dfpoc
+WorkingDirectory=/szah/dataset-foundry-poc/runtime/openmetadata-1.13.0
+EnvironmentFile=/szah/dataset-foundry-poc/config/openmetadata/openmetadata.env
+ExecStart=/szah/dataset-foundry-poc/runtime/java-21/bin/java -Xms768m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -Djava.awt.headless=true -cp libs/* org.openmetadata.service.OpenMetadataApplication server conf/openmetadata.yaml
+Restart=on-failure
+RestartSec=10
+SuccessExitStatus=143
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

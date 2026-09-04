@@ -3,8 +3,10 @@ package org.szah.dataset.integrations.openmetadata.config;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+
+import java.net.http.HttpClient;
 
 @Configuration
 public class HttpClientConfiguration {
@@ -24,9 +26,11 @@ public class HttpClientConfiguration {
                 .build();
     }
 
-    private static SimpleClientHttpRequestFactory requestFactory(AdapterProperties.OpenMetadata properties) {
-        var factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(properties.connectTimeout());
+    private static JdkClientHttpRequestFactory requestFactory(AdapterProperties.OpenMetadata properties) {
+        var httpClient = HttpClient.newBuilder()
+                .connectTimeout(properties.connectTimeout())
+                .build();
+        var factory = new JdkClientHttpRequestFactory(httpClient);
         factory.setReadTimeout(properties.readTimeout());
         return factory;
     }

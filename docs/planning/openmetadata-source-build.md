@@ -53,7 +53,7 @@ yarn build
 - OpenMetadata UI 构建固定 `NODE_OPTIONS=--max_old_space_size=6144`。在至少 8 GiB 可用内存前，不在 139 强行执行 UI 构建；不得停止正在提供集成能力的 identity/platform 来伪造资源满足。
 - 139 无公网制品源连通性。先在兼容的联网构建节点完成源码构建并固化离线依赖，随后上传到 139 做同提交原生复构建、制品哈希校验和运行态验收。
 
-当前状态仍为 `IN_PROGRESS`：源码纳管和构建输入已就绪，后端完整构建、Linux UI 构建、自有 Fork 安全补丁构建与共享内网运行态验收尚未全部通过。
+当前状态仍为 `IN_PROGRESS`：源码纳管、自有 Fork 安全补丁构建和 139 原生运行验证已完成；同一固定提交的 Linux 完整后端/UI 构建，以及交互式 OIDC、角色/组撤销、禁用传播和登出验收尚未全部通过。
 
 ### 4.1 本轮联网构建探针
 
@@ -70,6 +70,12 @@ yarn build
 2026-09-04 对自有 Fork `c73f8fcb0c4bdab0af689c8ed9a31596caccf987` 使用 Maven 3.9.11、JDK 21 执行 `openmetadata-service` 及 reactor 依赖的定向 `package`：5 个测试类共 154 项测试全部通过，0 failure、0 error、0 skipped；13 个变更 Java 文件的 Spotless 定向检查和 `git diff --check` 均通过。
 
 本次 `openmetadata-service-1.13.0.jar` SHA-256 为 `37534995A3D496CAFC96EB41225CDDAB0830DAB61027DC720E2D1B71CF21BA97`。该摘要来自 Windows 联网构建节点，仅作为源码补丁编译与测试证据；仍须在 Linux 上按同一提交完成后端/UI 正式构建并重新记录制品摘要。
+
+### 4.3 139 原生运行验证
+
+上述 Windows 联网节点产出的 patched `openmetadata-service-1.13.0.jar` 已部署到 139 的 `/szah/dataset-foundry-poc` 隔离目录，以 Java 21 和 systemd 原生方式运行，不依赖容器或官方远程服务。运行态复用隔离 PostgreSQL/OpenSearch，完成版本、健康、数据库迁移、索引模板和合成元数据适配器链路验证；服务单元保持 disabled，不随主机启动自动拉起。
+
+该运行验证使用的服务 JAR SHA-256 仍为 `37534995A3D496CAFC96EB41225CDDAB0830DAB61027DC720E2D1B71CF21BA97`，对应自有 Fork 提交 `c73f8fcb0c4bdab0af689c8ed9a31596caccf987`。这证明当前补丁制品可以在 139 原生运行，但不替代出口门要求的 Linux 同提交完整后端/UI 构建；Linux 正式构建完成后必须重新记录服务 JAR、UI 静态制品和离线依赖摘要。
 
 ## 5. 出口证据
 

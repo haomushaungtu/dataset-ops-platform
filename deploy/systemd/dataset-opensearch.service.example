@@ -1,0 +1,19 @@
+[Unit]
+Description=Dataset Foundry OpenSearch 3.4.0 PoC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dfsearch
+Group=dfsearch
+WorkingDirectory=/szah/dataset-foundry-poc/runtime/opensearch-3.4.0
+Environment="OPENSEARCH_JAVA_OPTS=-Xms768m -Xmx768m"
+ExecStart=/szah/dataset-foundry-poc/runtime/opensearch-3.4.0/bin/opensearch
+Restart=on-failure
+RestartSec=10
+SuccessExitStatus=143
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

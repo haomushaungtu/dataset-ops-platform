@@ -6,11 +6,13 @@ Dataverse 6.10.1 运行态已确认存在 `oidc` 认证工厂，OpenMetadata 1.1
 
 2026-09-03 的补充只读定位发现，`10.100.165.170` 上存在 `/home/hqd/hqd-auth.jar`，监听 9210，且从 139 可达。但它的 `/.well-known/openid-configuration` 和 `/oauth2/.well-known/openid-configuration` 都返回统一的业务 401 JSON 包装而非 OIDC discovery；JAR 中可见自定义 Token/社交登录控制器和 `spring-security-crypto`，未发现 OIDC/OAuth2 Authorization Server 依赖。结合 Nacos 111 个命名空间中 `authentication-api` 服务和实例均为 0，可判定该服务目前不是可直接供 OpenMetadata/Dataverse 使用的标准 OIDC IdP。
 
-因此决定不复用或改造 `hqd-auth`，改为自建 `backend/identity-service`。2026-09-03 已在 139 以 Java 21、独立 PostgreSQL 和外部 RSA-3072 PKCS12 完成标准 discovery/JWKS 与完整 OIDC 协议 PoC。2026-09-04 切换为 `http://10.100.165.139:19000` 私网开发模式并复验通过；服务当前运行但未设为开机启动。
+因此决定不复用或改造 `hqd-auth`，改为自建 `backend/identity-service`。2026-09-03 已在 139 以 Java 21、独立 PostgreSQL 和外部 RSA-3072 PKCS12 完成标准 discovery/JWKS 与完整 OIDC 协议 PoC。2026-09-04 切换为 `http://10.100.165.139:19000` 私网开发模式并复验通过；服务按原生非容器 systemd 方式运行但保持 `disabled`，不随主机启动。
 
 技术 PoC 已通过授权码 + S256 PKCE、UserInfo、身份/角色 Claim、刷新令牌轮换、服务账号隔离、OIDC 登出、未登记回调拒绝及合成用户禁用即时作用于身份管理 API。开发阶段可直接用内网 IP 完成两个产品接入；B-01 在生产域名/TLS 和产品真实验收完成后关闭。
 
-以上“已通过”仅指自建身份服务自身的协议 PoC，不代表 OpenMetadata 1.13.0 产品接入已经通过。OpenMetadata 接入的安全、撤销和全局登出门禁以第 5 节为准；其中标记为预期失败的项目必须先在项目自有 Fork 修复并回归，不能以风险接受代替通过。
+2026-09-04 已进一步完成 OpenMetadata 服务账号的客户端凭据机器令牌验证：令牌可从自建身份服务签发，OpenMetadata 可从当前 JWKS 取得签名 Key、完成验签并成功访问 API。该结果证明 discovery/JWKS、客户端凭据和机器到机器链路可用，不代表浏览器交互式 OIDC 登录、权限映射、禁用传播或全局登出已经通过。
+
+以上“已通过”仅指自建身份服务协议 PoC 及机器到机器技术链路，不代表 OpenMetadata 1.13.0 的交互式产品接入已经通过。OpenMetadata 接入的安全、撤销和全局登出门禁以第 5 节为准；其中标记为预期失败的项目必须先在项目自有 Fork 修复并回归，不能以风险接受代替通过。
 
 ## 2. OpenMetadata 1.13.0 精确配置契约
 
@@ -24,6 +26,8 @@ Dataverse 6.10.1 运行态已确认存在 `oidc` 认证工厂，OpenMetadata 1.1
 - `AUTHORIZER_USE_ROLES_FROM_PROVIDER=false` 保持关闭。身份 Claim 与最小权限映射通过验收前，不允许直接把 IdP `roles` 当作 OpenMetadata 角色导入。
 
 模板中的 HTTP 地址只适用于已批准的隔离内网开发测试；不能复制到生产配置。客户端 ID 和 Secret 仍由 0600 运行时文件注入。
+
+OpenMetadata 1.13.0 会优先加载数据库中持久化的系统安全配置并覆盖 YAML/环境变量。2026-09-04 实测中，历史数据库记录仍为 `basic` 且包含错误的 issuer/JWKS 地址，导致仅修改 systemd 环境后机器令牌验签失败。修正流程必须是：通过受控 API 读取并备份 `/api/v1/system/security/config`，更新为目标 OIDC 配置，随后回读并以真实令牌复验；不得把“环境变量正确”视为运行态配置已经生效。当前内部 HTTP discovery 因产品 URL 安全校验会被拒绝，只允许在已独立验证地址可达和 JWKS 正确的隔离 PoC 中精确绕过该单项校验，生产环境不得绕过。
 
 ## 3. 生产接入前需确认
 
@@ -58,6 +62,8 @@ python3 deploy/scripts/oidc_readiness_check.py \
 仅在明确接受的隔离内网 PoC 中可以增加 `--poc-allow-http`。即使设置该参数，工具仍拒绝解析到公网地址的明文 HTTP；生产验收必须使用 HTTPS。证据只允许写入 PoC 日志目录的 `oidc-readiness-*.json`，权限为 0600，URL 会移除查询参数和片段。
 
 门禁通过只证明发现文档和验签 Key 就绪，不证明客户端登记、登录、角色、登出或禁用行为通过。
+
+2026-09-04 的内网 HTTP readiness 复验已通过，证据为 `/szah/dataset-foundry-poc/logs/oidc/oidc-readiness-20260904T044048Z.json`，SHA-256 为 `673567fee3d4fbc3252b2be9cc0747e8d8b43a649be42655dce7d7eb91aaa36d`。随后以专用服务账号机器令牌直接访问 OpenMetadata 返回 200；OpenSearch 迁入原生 systemd 单元后的最新适配器闭环证据为 `/szah/dataset-foundry-poc/logs/openmetadata-adapter/adapter-e2e-20260904T045405Z.json`，SHA-256 为 `f7cd2adb269d6f5b6d9124bd954cfef29a401de1204c036eb0b560efb03c3f96`。该服务账号当前为 PoC 管理权限，生产前必须收敛到最小权限。
 
 ## 5. 两个客户端的实际验收
 
