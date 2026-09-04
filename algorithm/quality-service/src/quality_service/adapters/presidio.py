@@ -13,7 +13,7 @@ from presidio_analyzer.nlp_engine import NoOpNlpEngine
 
 PRESIDIO_COMMIT = "779dbd286d5ef4d1fbe2514275fb1bce358f2417"
 PRESIDIO_VERSION = "2.2.364"
-ANALYZER_ENGINE_SHA256 = "28a1ad308244634764769009c6618332c4bf7c6ea1078471d90f66653db6d0ca"
+ANALYZER_ENGINE_SHA256 = "e896c06d5da27994569c4cb66d0029d09d4f78cea59f0a3c555db7c5ad7bbde5"
 SELF_TEST_SHA256 = "918f98f3e0bb5892c109d039439f1d1ff0a900ec5b5db421bf07dfaa3a649473"
 
 
@@ -71,7 +71,8 @@ def _recognizer_config_sha256() -> str:
 class PresidioMedicalAdapter:
     def __init__(self, self_test_path: Path) -> None:
         module_path = Path(inspect.getfile(AnalyzerEngine)).resolve()
-        self.module_sha256 = hashlib.sha256(module_path.read_bytes()).hexdigest()
+        module_bytes = module_path.read_bytes().replace(b"\r\n", b"\n")
+        self.module_sha256 = hashlib.sha256(module_bytes).hexdigest()
         if self.module_sha256 != ANALYZER_ENGINE_SHA256:
             raise RuntimeError("presidio-source-hash-mismatch")
         if self_test_path.is_symlink() or not self_test_path.is_file():
