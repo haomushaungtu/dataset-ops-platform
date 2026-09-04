@@ -23,7 +23,7 @@
 | 工作流 | 当前状态 | 已有证据 | 第一个验收切片 | 下一验收门 |
 | --- | --- | --- | --- | --- |
 | 运营与 Flowable：供应商入驻 | `DONE` | 139 上原生 `platform-service` 已接入真实 IAM、PostgreSQL 16.15、MinIO 和 Flowable；Authorization Code + PKCE 合成用户完成创建、草稿修改、两版资质材料上传及幂等重放、提交、退回、补正、重提、审批、历史/材料查询，结果 `APPROVED`；共享环境同时完成拒绝、草稿撤回异常分支。批准申请 `f842ea9a-daaf-4975-a3e3-ea7af68fe67a` 的数据库核对为版本 10、11 条状态历史、11 条审计、12 条 Outbox、2 个材料版本，MinIO 两个对象的 HEAD 大小/类型与数据库一致；IAM 状态 `SYNCED`，刷新登录后获得 `SUPPLIER`；H2 与真实 PostgreSQL 双线程同键幂等测试均只产生一个申请 | 供应商申请到运营审批、创建 ACTIVE 供应商并完成 IAM 角色同步 | SUP-001 至 SUP-005 已纳入共享环境端到端证据；后续仅在跨工作流集成回归中复验，不扩展供应商一期范围 |
-| OpenMetadata | `IN_PROGRESS` | 自有 Fork `haomushaungtu/OpenMetadata` 已建立，以 Git Submodule 纳入 `opensource/openmetadata` 并固定 `f329dd4a7e47134a2bd5a06af6181b0ee527ddd9`；1.13.0 发行包、数据库迁移、OpenSearch 和合成元数据 CRUD/search 技术 PoC 已通过，运行时已停止 | 真实 OIDC 登录、角色/退出/禁用传播；通过正式适配器写入一个数据集的癌种/模态属性并可检索 | Fork 后端/UI 在 Linux 完整构建；OpenMetadata/OpenSearch 受控启动；真实产品登录和元数据读写冒烟通过 |
+| OpenMetadata | `IN_PROGRESS` | 自有 Fork/Submodule 已固定 `c73f8fcb0c4bdab0af689c8ed9a31596caccf987`；首批 OIDC/SAML 角色、管理员和 Group Team 收敛补丁已推送，154 项定向测试及 Spotless 通过。正式 `openmetadata-adapter` 已实现 client_credentials、入站 scope/audience、五项自定义属性、冲突保护和读回校验，7 项测试通过；身份服务增加独立适配器客户端后 9 项测试通过。源码已上传 139，JDK 21/Maven 3.9.11 已就绪；历史发行包、数据库迁移、OpenSearch 和合成元数据 CRUD/search 技术 PoC 已通过 | 真实 OIDC 登录、角色/退出/禁用传播；通过正式适配器写入一个数据集的癌种/模态属性并可检索 | Linux 同提交后端/UI 构建；OpenMetadata/OpenSearch/适配器受控启动；真实产品登录、角色/组收敛和元数据读写冒烟；继续修复 token URL、iss/aud/auth_version、禁用传播与 RP logout 门禁 |
 | 接入与 Dataverse | `QUEUED` | Dataverse 6.10.1、Solr 9.8.0、MinIO 上传下载及哈希回读技术 PoC 已通过，运行时已停止 | 已认证供应商创建数据集版本和接入批次，单个 CSV 进入 receiving 区、形成 SHA-256 文件清单，并创建 Dataverse 草稿及外部 ID 映射 | 共享开发 PostgreSQL、MinIO 最小权限前缀、Dataverse/Solr 和 IAM 集成通过；重复完成幂等、跨供应商访问拒绝 |
 | 质量测评 | `QUEUED` | Data-Juicer 1.5.5 与 Presidio 2.2.364 合成样本命令级 PoC 已通过 | 对固定数据集版本创建 `CANCER_TABULAR_V1` 任务，真实执行 Data-Juicer/Presidio，持久化进度、指标、问题样本和结构化报告 | 质量服务使用只读对象引用运行；重试不重复汇总；输入哈希不变；平台保存汇总和报告引用 |
 
@@ -45,7 +45,7 @@
 ## 4. 当前共享工作区限制
 
 - 当前所有协作任务共享同一工作目录，文件改动会立即互相可见；尚未建立本轮独立 Git Worktree。
-- 当前 Git 主线只有初始提交，大部分工程成果仍为未跟踪文件；在形成可追踪基线前，不得把计划中的分支前缀描述为已经生效。
+- 当前 Git 主线已固化并推送源码纳管与供应商基线；并行修改仍须在提交前核对父仓库、子模块和远端提交，未推送到自有 Fork 的子模块定制不得更新父仓库 gitlink。
 - 同一时刻一个路径只能有一个写入 Owner；公共文件由总控集中修改。发现重叠改动时，相关工作流暂停写入并由总控裁决。
 - 不允许通过复制工程或新增临时目录规避冲突。制品、日志、上传文件、凭据和 `target` 等构建输出不得纳入版本控制。
 
@@ -63,7 +63,7 @@
 
 ## 6. 下一步调度
 
-1. 总控先固化当前共享工作区基线，避免未跟踪文件与并行改动失联。
+1. 总控持续按自有 Fork 提交、父仓库 gitlink、构建证据三者一致的顺序固化共享工作区，避免并行改动失联。
 2. 供应商首切片已达到 `DONE`，后续只参加跨工作流回归，不继续扩大一期供应商范围。
 3. OpenMetadata 已进入 `IN_PROGRESS`；接入与 Dataverse、质量测评仍保持 `QUEUED`，先完成各自首个产品纵向切片再提升状态。
 4. 每通过供应商、接入、质量、上架、订单或交付一个节点即集成，不等待所有模块完成后集中联调。

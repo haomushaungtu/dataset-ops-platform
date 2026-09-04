@@ -58,6 +58,9 @@ identity:
     platform-service:
       client-id: ${DF_IAM_PLATFORM_CLIENT_ID}
       client-secret: ${DF_IAM_PLATFORM_CLIENT_SECRET}
+    openmetadata-adapter:
+      client-id: ${DF_IAM_OPENMETADATA_ADAPTER_CLIENT_ID}
+      client-secret: ${DF_IAM_OPENMETADATA_ADAPTER_CLIENT_SECRET}
 
 management:
   server:

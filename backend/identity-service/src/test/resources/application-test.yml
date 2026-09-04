@@ -36,6 +36,9 @@ identity:
     platform-service:
       client-id: platform-test
       client-secret: platform-test-secret-2026
+    openmetadata-adapter:
+      client-id: openmetadata-adapter-test
+      client-secret: openmetadata-adapter-test-secret-2026
 
 management:
   server:

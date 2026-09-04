@@ -1,0 +1,23 @@
+[Unit]
+Description=High-quality Dataset OpenMetadata Adapter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dfomadapter
+Group=dfomadapter
+WorkingDirectory=/szah/dataset-foundry/runtime/openmetadata-adapter
+EnvironmentFile=/szah/dataset-foundry/config/openmetadata-adapter/openmetadata-adapter.env
+ExecStart=/szah/dataset-foundry/runtime/java-21/bin/java -XX:MaxRAMPercentage=50.0 -jar /szah/dataset-foundry/runtime/openmetadata-adapter/openmetadata-adapter.jar
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/szah/dataset-foundry/logs/openmetadata-adapter
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,39 @@
+server:
+  address: ${DF_OM_ADAPTER_BIND_ADDRESS:127.0.0.1}
+  port: ${DF_OM_ADAPTER_PORT:19110}
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: openmetadata-adapter
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+
+adapter:
+  security:
+    issuer: ${DF_OM_ADAPTER_OIDC_ISSUER}
+    audience: ${DF_OM_ADAPTER_OIDC_AUDIENCE:dataset-platform-api}
+  iam:
+    token-uri: ${DF_OM_ADAPTER_IAM_TOKEN_URI}
+    client-id: ${DF_OM_ADAPTER_IAM_CLIENT_ID}
+    client-secret: ${DF_OM_ADAPTER_IAM_CLIENT_SECRET}
+    scope: ${DF_OM_ADAPTER_IAM_SCOPE:platform.internal}
+  openmetadata:
+    base-url: ${DF_OM_ADAPTER_BASE_URL}
+    connect-timeout: ${DF_OM_ADAPTER_CONNECT_TIMEOUT:PT3S}
+    read-timeout: ${DF_OM_ADAPTER_READ_TIMEOUT:PT10S}
+
+management:
+  server:
+    address: 127.0.0.1
+    port: ${DF_OM_ADAPTER_ADMIN_PORT:19111}
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never

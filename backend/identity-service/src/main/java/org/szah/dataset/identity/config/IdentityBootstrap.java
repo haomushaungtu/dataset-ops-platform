@@ -39,7 +39,8 @@ public class IdentityBootstrap implements ApplicationRunner {
         bootstrapAdmin();
         saveInteractiveClient("openmetadata", properties.getClients().getOpenmetadata());
         saveInteractiveClient("dataverse", properties.getClients().getDataverse());
-        saveServiceClient(properties.getClients().getPlatformService());
+        saveServiceClient("platform-service", properties.getClients().getPlatformService());
+        saveServiceClient("openmetadata-adapter", properties.getClients().getOpenmetadataAdapter());
     }
 
     private void bootstrapAdmin() {
@@ -84,14 +85,14 @@ public class IdentityBootstrap implements ApplicationRunner {
         clients.save(builder.build());
     }
 
-    private void saveServiceClient(IdentityProperties.ServiceClient config) {
-        require(config.getClientId(), "identity.clients.platform-service.client-id");
-        require(config.getClientSecret(), "identity.clients.platform-service.client-secret");
-        requireStrongSecret(config.getClientSecret(), "identity.clients.platform-service.client-secret");
+    private void saveServiceClient(String name, IdentityProperties.ServiceClient config) {
+        require(config.getClientId(), "identity.clients." + name + ".client-id");
+        require(config.getClientSecret(), "identity.clients." + name + ".client-secret");
+        requireStrongSecret(config.getClientSecret(), "identity.clients." + name + ".client-secret");
         RegisteredClient existing = clients.findByClientId(config.getClientId());
         clients.save(RegisteredClient.withId(existing == null ? UUID.randomUUID().toString() : existing.getId())
                 .clientId(config.getClientId())
-                .clientName("platform-service")
+                .clientName(name)
                 .clientSecret(encodedSecret(existing, config.getClientSecret()))
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)

@@ -90,6 +90,7 @@ class IdentityServiceApplicationTests {
         assertThat(openMetadata.getTokenSettings().isReuseRefreshTokens()).isFalse();
         assertThat(clients.findByClientId("dataverse-test")).isNotNull();
         assertThat(clients.findByClientId("platform-test")).isNotNull();
+        assertThat(clients.findByClientId("openmetadata-adapter-test")).isNotNull();
     }
 
     @Test
@@ -130,6 +131,26 @@ class IdentityServiceApplicationTests {
                 HttpMethod.PUT, new HttpEntity<>(bearer), Void.class);
         assertThat(replay.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         assertThat(users.roleNames(targetId)).containsExactlyInAnyOrder("BUYER", "SUPPLIER");
+    }
+
+    @Test
+    void issuesDedicatedOpenMetadataAdapterToken() {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBasicAuth("openmetadata-adapter-test", "openmetadata-adapter-test-secret-2026");
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        LinkedMultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("grant_type", "client_credentials");
+        form.add("scope", "platform.internal");
+
+        ResponseEntity<Map> response = http.exchange(
+                "/oauth2/token", HttpMethod.POST, new HttpEntity<>(form, headers), Map.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        Jwt jwt = jwtDecoder.decode((String) response.getBody().get("access_token"));
+        assertThat(jwt.getAudience())
+                .containsExactlyInAnyOrder("openmetadata-adapter-test", "dataset-platform-api");
+        assertThat(jwt.getClaimAsString("sub")).isEqualTo("openmetadata-adapter-test");
+        assertThat(jwt.getClaimAsStringList("scope")).containsExactly("platform.internal");
     }
 
     @Test

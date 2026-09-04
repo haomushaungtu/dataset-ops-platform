@@ -13,7 +13,7 @@
 - 5 分钟访问令牌、8 小时刷新令牌、刷新令牌轮换；
 - 管理员创建/禁用用户、角色替换和密码重置 API；
 - 防止管理员禁用自身或移除自身 `ADMIN` 角色。
-- `platform.internal` 服务账号只能调用受限的供应商角色增量接口，不能调用用户 `/me` 或管理员接口。
+- `platform.internal` 服务账号不能调用用户 `/me` 或管理员接口；平台服务账号用于受限角色增量，OpenMetadata 适配器使用独立机器客户端，二者不共享密钥。
 
 ## 本地验证
 
@@ -31,7 +31,7 @@
 2. 将 `deploy/config/identity-service.env.example` 复制到仓库外的 0600 文件并替换所有占位值。
 3. 使用 `deploy/scripts/generate-identity-keystore.sh` 创建不入库的 PKCS#12；生产应接入组织密钥托管和轮换制度。
 4. 仅通过 TLS 反向代理公开 19000，19001 管理健康端口保持回环；代理必须限速登录和 Token 端点。
-5. 首次启动确认管理员和三个客户端创建成功后，从环境文件删除 bootstrap 管理员密码。
+5. 首次启动确认管理员和四个客户端（OpenMetadata、Dataverse、platform-service、openmetadata-adapter）创建成功后，从环境文件删除 bootstrap 管理员密码。
 
 内网开发阶段可显式设置 `DF_IAM_ALLOW_INSECURE_PRIVATE_NETWORK=true`，issuer 和回调地址必须使用 RFC1918 IPv4 字面地址，同时设置 `DF_IAM_COOKIE_SECURE=false`。该例外不会接受公网 IP、主机名、非 HTTP 协议或默认未授权的明文地址，禁止用于生产。
 

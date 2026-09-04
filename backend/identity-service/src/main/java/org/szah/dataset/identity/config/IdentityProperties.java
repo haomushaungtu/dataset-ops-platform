@@ -68,9 +68,11 @@ public class IdentityProperties {
         private final Client openmetadata = new Client();
         private final Client dataverse = new Client();
         private final ServiceClient platformService = new ServiceClient();
+        private final ServiceClient openmetadataAdapter = new ServiceClient();
         public Client getOpenmetadata() { return openmetadata; }
         public Client getDataverse() { return dataverse; }
         public ServiceClient getPlatformService() { return platformService; }
+        public ServiceClient getOpenmetadataAdapter() { return openmetadataAdapter; }
     }
 
     public static class Client {
