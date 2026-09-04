@@ -1,0 +1,5 @@
+{"record_id":"NOTE-SYN-001","text":"测试患者甲，虚构身份证号990000199001010010，联系电话19900000001，病历号SYN-MR-000001。","expected_entities":["CN_ID_CARD","CN_MOBILE","MEDICAL_RECORD_ID"]}
+{"record_id":"NOTE-SYN-002","text":"测试患者乙完成乳腺组织样本复核，未记录任何直接身份标识。","expected_entities":[]}
+{"record_id":"NOTE-SYN-003","text":"测试患者丙，虚构手机号18800000002，门诊号SYN-OP-000003。","expected_entities":["CN_MOBILE","OUTPATIENT_ID"]}
+{"record_id":"NOTE-SYN-004","text":"病理结论：合成样例，仅供质量检测流程测试。","expected_entities":[]}
+{"record_id":"NOTE-SYN-005","text":"测试患者丁，虚构住院号SYN-IP-000005，复核人员为测试医生甲。","expected_entities":["INPATIENT_ID","CLINICIAN_NAME"]}

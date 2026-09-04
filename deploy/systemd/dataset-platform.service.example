@@ -1,0 +1,23 @@
+[Unit]
+Description=High-quality Dataset Platform Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dfplatform
+Group=dfplatform
+WorkingDirectory=/szah/dataset-foundry/runtime/platform-service
+EnvironmentFile=/szah/dataset-foundry/config/platform/platform-service.env
+ExecStart=/szah/dataset-foundry/runtime/java-21/bin/java -XX:MaxRAMPercentage=60.0 -jar /szah/dataset-foundry/runtime/platform-service/dataset-platform-service.jar
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/szah/dataset-foundry/logs/platform
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target

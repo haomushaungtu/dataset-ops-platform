@@ -1,0 +1,32 @@
+{
+  "classification": "SYNTHETIC_NO_REAL_DATA",
+  "dataset": "cancer-registry.csv",
+  "expectedIssues": [
+    {
+      "rule": "required-field",
+      "rowId": "ROW-004",
+      "field": "cancer_type_code"
+    },
+    {
+      "rule": "allowed-modality",
+      "rowId": "ROW-005",
+      "field": "modality"
+    },
+    {
+      "rule": "unique-patient-token",
+      "rowId": "ROW-006",
+      "field": "patient_token",
+      "duplicates": "ROW-002"
+    },
+    {
+      "rule": "collection-not-after-diagnosis",
+      "rowId": "ROW-007",
+      "field": "collection_date"
+    },
+    {
+      "rule": "required-field",
+      "rowId": "ROW-008",
+      "field": "consent_scope"
+    }
+  ]
+}

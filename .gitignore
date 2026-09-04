@@ -1,0 +1,51 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+secrets/
+
+# IDE and OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs, runtime data and uploads
+*.log
+logs/
+uploads/
+runtime/
+data/
+
+# Java
+target/
+.gradle/
+build/
+out/
+
+# JavaScript
+node_modules/
+dist/
+coverage/
+.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Test and generated artifacts
+test-results/
+playwright-report/
+allure-results/
+*.tmp
+*.swp

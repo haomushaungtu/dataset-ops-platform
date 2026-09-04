@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://szah.org/dataset/platform/workflow">
+    <process id="supplierOnboarding" name="Supplier onboarding" isExecutable="true">
+        <startEvent id="start"/>
+        <sequenceFlow id="start-to-review" sourceRef="start" targetRef="supplierReview"/>
+
+        <userTask id="supplierReview" name="Review supplier application" flowable:candidateGroups="OPERATOR"/>
+        <sequenceFlow id="review-to-decision" sourceRef="supplierReview" targetRef="decisionGateway"/>
+
+        <exclusiveGateway id="decisionGateway"/>
+        <sequenceFlow id="approved" sourceRef="decisionGateway" targetRef="approvedEnd">
+            <conditionExpression xsi:type="tFormalExpression"><![CDATA[${decision == 'APPROVED'}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="rejected" sourceRef="decisionGateway" targetRef="rejectedEnd">
+            <conditionExpression xsi:type="tFormalExpression"><![CDATA[${decision == 'REJECTED'}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="returned" sourceRef="decisionGateway" targetRef="supplierRevision">
+            <conditionExpression xsi:type="tFormalExpression"><![CDATA[${decision == 'RETURNED'}]]></conditionExpression>
+        </sequenceFlow>
+
+        <userTask id="supplierRevision" name="Revise supplier application" flowable:assignee="${applicantId}"/>
+        <sequenceFlow id="revision-to-review" sourceRef="supplierRevision" targetRef="supplierReview"/>
+        <endEvent id="approvedEnd"/>
+        <endEvent id="rejectedEnd"/>
+    </process>
+</definitions>

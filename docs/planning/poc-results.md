@@ -1,0 +1,67 @@
+# 一期只读环境核验与技术 PoC 结果
+
+- 执行日期：2026-09-03
+- 范围：网络与中间件只读核验、Flowable 编译兼容性、Data-Juicer/Presidio 合成样本最小链路、139 Linux 原生部署，以及 OpenMetadata/OpenSearch、Dataverse/Solr、统一身份服务隔离集成 PoC
+- 边界：经用户明确授权，只创建带 `_poc` 后缀的隔离 PostgreSQL 数据库/账号/Schema、MinIO 全新 PoC 前缀、一个唯一临时 Dataverse PoC Bucket，以及 139 主机隔离安装目录、应用数据库和临时搜索测试数据；未读取业务数据，未修改或删除既有资源，未把部署凭据写入代码或本报告。139 主机曾停止 7 个 `hqd-*.jar` 进程；OpenMetadata/OpenSearch、Dataverse/Solr 等 PoC 进程验证后已停止，临时内核参数已恢复，Dataverse 合成数据、临时用户、Token、AWS 凭据、配置快照和临时 Bucket 已精确清理。统一身份服务随后按用户决定切换为内网开发 HTTP 模式并保持运行，详见第 29 条
+
+## 1. 结论
+
+| Item | Result | Evidence / limitation |
+| --- | --- | --- |
+| 内网连通性 | 通过 | 部署清单列出的 PostgreSQL、MinIO、Redis、Kafka、Elasticsearch/Kibana、Nacos、OceanBase、RocketMQ、Polaris、Neo4j 端口可达；健康接口只读返回成功 |
+| PostgreSQL | OpenMetadata/Dataverse 专用库 PoC 通过 | 16.15；`openmetadata_poc` 已启用 `pgcrypto` 1.3、`pg_trgm` 1.6，迁移账本共 94 行且最后版本为 1.13.0。变更前和检查点备份已通过 `pg_restore -l` 与 SHA-256 校验；扩展仅在专用库启用，PostgreSQL 未重启 |
+| MinIO | Dataverse 实际集成通过 | 原有 5 个合成文件在 `dataset-landing/phase1/poc/20260903T050745Z/synthetic/` 的版本和回读 SHA-256 一致；另以唯一临时 Bucket 验证 Dataverse 6.10.1 `s3poc` 驱动，上传对象与源 CSV SHA-256 `a5734cc45f82557305c39fc3bb5f3c0e87e9d5d6b5a9a65f3cd1a9dcdce831e5` 一致。临时 Bucket 删除前对象、版本、删除标记均为 0，随后已删除；生产默认加密、生命周期和最小权限仍待处理 |
+| Redis | 风险接受前阻塞 | 5.0.7 standalone 可认证连接，但不满足建议的受支持、高可用生产基线 |
+| Kafka | 风险接受前阻塞 | 单 Broker 可连接且已有 12 个 Topic；未消费、未创建；生产副本与 ACL 方案待批 |
+| OpenMetadata 运行时与搜索 | 端到端 PoC 通过（已停机） | 官方 1.13.0 发行包在 Java 21 上完成迁移与健康检查；隔离 OpenSearch 3.4.0 产生 60 个索引、61 个模板。合成元数据完成创建、读取、搜索、递归硬删除和 API/索引双重清理；该无安全插件配置仅限本机 PoC |
+| OpenMetadata Java 源码 | 最小编译通过 | 固定提交 `f329dd4a`；Java 21 + Maven 3.9.11 编译 `openmetadata-spec`，生成代码并编译 1,508 个源文件，产出 1.13.0 JAR |
+| OpenMetadata UI 源码 | 本机环境阻塞 | 上游固定 Node 22.17.0 / Yarn 1.22.18 安装成功；`build-check` 的 POSIX `PWD=$(echo $PWD)` 在 Windows `cmd.exe` 失败；当前工作站无已注册 WSL 发行版且 `VirtualMachinePlatform` 未启用，须在受控 Linux 主机复验 |
+| Linux 原生 PoC 主机 | 部分通过 | `10.100.165.139` 为 Kylin V10、4 核、14 GiB、无 Swap，`/szah` 可用 81 GiB；停止 7 个明确归属 `/home/hqd` 的 Java 服务后可用内存约 4.8 GiB，适合组件逐个启动，不适合全栈并行常驻；主机无公网制品源连通性 |
+| IAM/OIDC | 自建统一身份内网开发模式通过（运行中） | 现有 `hqd-auth` 不可直接接入后，实现 `dataset-identity-service`。139 上以 Java 21、独立 PostgreSQL 16.15 库和外部 RSA-3072 PKCS12 完成完整 OIDC PoC；现以 `http://10.100.165.139:19000` 提供 RFC1918 私网开发访问，管理端口仍仅回环，生产 HTTPS 和 OpenMetadata/Dataverse 真实接入仍待验收 |
+| 合成测试数据 | 通过 | 仓库生成 8 条结构化癌症登记数据、5 条医学文本和 5 个预期质量问题；Presidio 规则对 5 条文本的阳性/阴性期望全部匹配，文件 SHA-256 已记录 |
+| Flowable | 通过 | Java 21 + Spring Boot 3.5.4 + Flowable 7.2.0 最小工程编译成功 |
+| 平台主控供应商切片 | 共享内网集成通过（运行中） | 139 上 Java 21 原生服务接入真实 IAM、`platform_ops_poc` PostgreSQL 16.15 和 Flowable。合成申请人/运营员经 Authorization Code + PKCE 完成创建、提交、审批、查询和 `SUPPLIER` 角色回读，最终 `APPROVED`；平台主体 ID 与 IAM 不可变用户 UUID/令牌 `sub` 一致。服务账号令牌在身份用户接口和供应商业务接口均返回 403，只允许受限内部角色同步及平台机器主体自检；systemd 未启用 |
+| Data-Juicer | 通过 | 1.5.5 对 3 条合成文本执行 `text_length_filter`，输出 2 条，错误数 0 |
+| Presidio | 通过 | 2.2.364 的自定义规则对合成文本识别中文身份证、手机号、病历号三类实体 |
+| Solr / Dataverse schema | 集成 PoC 通过（已停机） | Solr 9.8.0 的 `collection1` 已加载 Dataverse 6.10.1 官方 `schema.xml`/`solrconfig.xml`，Jetty 请求头限制设为 102400；先完成独立文档 CRUD，随后由 Dataverse API 创建合成数据集并验证 `entityId` 索引出现，删除后索引归零。未配置认证，仅限本机 PoC |
+| Dataverse | 原生运行时及 MinIO PoC 通过（已停机） | 官方 6.10.1 WAR 运行在 Payara 7.2026.2 / Java 21，HTTP/HTTPS/Admin 使用回环 `18080/18181/4848`，1.5 GiB 堆；版本 API 返回 6.10.1，专用 PostgreSQL 初始化 120 张表。合成脱敏数据集创建、CSV 上传、MinIO 对象写入、Dataverse 下载回读、Solr 索引和删除均通过；数据库数据集计数回到 0，临时用户通过官方 API 删除，Token 已撤销，凭据及 Bucket 已清理 |
+
+## 2. PoC 发现的工程约束
+
+1. Java 工程使用 Maven Wrapper 固定 Maven 3.9.11 或等效受控版本；不得依赖本机 Maven 3.6.0。
+2. 质量服务固定 Data-Juicer 1.5.5 与 Presidio 2.2.364，在 Linux 受控 Python 虚拟环境中从离线依赖目录安装全部依赖。PoC 观察到 Data-Juicer 会在依赖缺失时动态安装执行后端，生产环境必须通过预装、离线源和出站网络策略消除此行为。
+3. OpenMetadata 1.13 必须配置隔离 Elasticsearch 9.3 或经验证的 OpenSearch 3.x；不得在现有 Elasticsearch 8.17.4 集群创建索引。本次已用 OpenSearch 3.4.0 完成 60 个索引、61 个模板及合成元数据搜索/清理验证；生产仍需认证、TLS、监控、备份和容量方案。
+4. OpenMetadata 上游 Maven 构建固定 UI Node 22.17.0 和 Yarn 1.22.18；内网制品库需镜像 Maven、Node、Yarn 与 npm/Yarn 锁文件依赖。源码归档 SHA-256 为 `2DC534A6BC5AEAE128F15C46689F94857707D1C42F04D496C10D63A70A9F0E90`，PoC 生成的 spec JAR SHA-256 为 `85B8E33AB31956A7A33A2DC2DDEA53DD622E1AFE826068463ABFCF37836B26A0`。
+5. OpenMetadata UI 构建脚本依赖 POSIX shell 语法；正式 Fork、完整后端/UI 构建和补丁回归使用 Linux 受控构建节点。本机 Java 模块成功不代表完整发行包已通过。
+6. 上游 1.13.0 根构建对 `openmetadata-service` 的 `micrometer-bom` scope 给出非致命 Maven 模型警告；Fork 前先在 Linux 完整构建中确认影响，不在 PoC 中修改上游文件。
+7. 当前阶段不使用容器运行时。Dataverse 已在受控 Linux 主机完成原生发行包 PoC；OpenMetadata 继续使用同一原生、逐组件方式，不在当前工作站上临时改造生产中间件。
+8. 所有 PoC 使用合成数据，不能替代 B-07 所要求的经批准脱敏测试数据验收。
+9. 当前 Windows 工作站的 WSL 可选功能虽已启用，但无已注册 Linux 发行版，且 `VirtualMachinePlatform` 为禁用状态；不在本机新增虚拟化或 Linux 环境，Linux 构建和原生运行时 PoC 转移至受控 Linux 主机。
+10. 139 主机无法访问 GitHub、Maven Central、Node.js 和 npm 公网源，也未发现内网 Maven/npm 镜像配置；Linux 构建必须上传经校验的离线工具链和依赖制品。
+11. Dataverse 6.10.1 原生安装按[官方前置条件](https://guides.dataverse.org/en/6.10.1/installation/prerequisites.html)需要 Solr 9.8.0；现有 Elasticsearch 不能替代 Solr。官方专用 schema、Payara/WAR、版本 API 和数据集索引链路均已验证。
+12. 离线制品已按发布方 SHA-512 校验：OpenSearch Min 3.4.0 为 `23a3eaf12ba89f521a873fddef71dcd0dbb5603d794eacf48ef334d957a6a585d7ca2f3f6f4af7dde263ca5bb0b8df959b17cd5732d8b7aa5af654a0d430b4bd`，Solr 9.8.0 为 `e5db4fe32b5df45671c679d3ec5653bd5a969f43e28dad7e5f1b7633837c059250b610db7d593c13f674bf0edbaf4fe11ecb94c24fef6a22de952c6f2781800c`。
+13. 搜索组件只允许逐个启动：OpenSearch 与 Solr 均使用 1 GiB 堆、独立 OS 账号和回环地址。本次验证结束后进程与端口均已关闭，`vm.max_map_count` 已恢复为原值 `65530`；生产部署必须另行配置认证、TLS、持久化 sysctl、监控、备份和自启动策略。
+14. OpenMetadata 1.13.0 官方发行包 SHA-256 为 `85b65e6573851ff4f8afbad5b857bcc6245c4be118482e2656cf4ca072594b60`。第一次迁移因配置目录不可遍历而在连接前失败，保持 root secrets 目录 0700 后改用组件专属 0750 配置目录和 0600 文件，Java 21 校验通过。
+15. Dataverse 6.10.1 `dvinstall.zip` SHA-256 为 `dce00f9f1b8b0e65ab4a2e90d6899f3bc70d54ecc93732b85884e4577bd964be`；专用 schema SHA-256 为 `0d20144acaf3cbfe37a028cea7ed061f17bc4c46c2a6a8ee67b41a1c73bddea9`，`solrconfig.xml` 为 `780e5d135aa3a202751eee430d8a79e5699eaae2d93d44228784ba2a40dd580b`。
+16. Payara 7.2026.2 发行包 SHA-256 为 `3495d025450f2b4263f7fc91014bea89db9de907ad516b675d4f47b00e1ad4de`。PoC 将安装器自动计算的“主机一半内存”改为显式 1536 MiB 上限，并将数据目录固定在 `/szah/dataset-foundry-poc/data/dataverse`；这些是部署侧资源约束，不是上游源码修改。
+17. Payara Web、Admin、IIOP、JMX、JMS 和 JK 通道均已收紧到回环地址。Payara Data Grid 仅配置接口仍会因 Hazelcast 默认 `hazelcast.socket.bind.any=true` 产生通配监听；增加 `hazelcast.socket.bind.any=false` 与 `hazelcast.socket.server.bind.any=false` 后，内核检查确认 `4900` 也只绑定 `127.0.0.1`。最终复启后 Dataverse 版本 API 仍返回 6.10.1，随后全部进程停机。
+18. Dataverse 运行态认证工厂包含 `oidc`，[Dataverse 6.10.1 OIDC 文档](https://guides.dataverse.org/en/6.10.1/installation/oidc.html)支持通过 issuer 自动发现且支持 S256 PKCE；[OpenMetadata 1.13 官方文档](https://docs.open-metadata.org/v1.13.x/deployment/security/oidc)也支持自定义 OIDC。已提供 `deploy/config/dataverse-oidc.env.example` 和按 OpenMetadata 1.13.0 源码变量名生成的 `deploy/config/openmetadata-oidc.env.example`；真正接入仍至少需要从 139 可达的 discovery URL、issuer/JWKS、两个客户端登记、回调地址、角色/组映射、登出和禁用用户测试，不能用“存在 authentication-api 服务名”代替 OIDC 验收。
+19. Dataverse 安装器生成的管理员 API 令牌仅在回环端到端测试中使用，测试后按[官方 Native API](https://guides.dataverse.org/en/6.10.1/api/native-api.html)调用令牌删除接口并验证旧令牌被拒绝，安装日志中的令牌值已替换为 `<redacted>`。默认内置管理员口令仍不符合生产要求，任何重新开放服务前必须轮换或改接 OIDC。
+20. 按[Dataverse 6.10.1 S3 兼容存储配置](https://guides.dataverse.org/en/6.10.1/installation/config.html)使用 path-style、关闭直传/直下，将访问凭据放在 `dfdataverse` 私有的 0600 AWS 凭据文件。端到端链路证明数据库 `storageidentifier` 使用 `s3poc://`、MinIO 实体对象哈希与上传文件一致、Dataverse 下载回读一致；清理后 PostgreSQL/Solr/MinIO 和临时认证记录均归零。已提供 `deploy/config/dataverse-minio-poc.jvm-options.example`，生产不得直接沿用本次高权限 MinIO 凭据。
+21. OpenMetadata 续跑已固化为 `deploy/scripts/openmetadata-poc-gate.sh` 和 `docs/planning/openmetadata-poc-runbook.md`。门禁严格限定专用数据库、Java 21、回环 OpenSearch 3.4.0、PoC 端口、`pgcrypto`/`pg_trgm` 和迁移语句检查点；最终预检、搜索和运行态验证均通过。
+22. `deploy/scripts/openmetadata_synthetic_smoke.py` 已在真实服务完成验收：8 行、10 列合成元数据的所有创建请求均返回 201，读取 200，首次搜索命中，递归硬删除 200，随后 API 404 且搜索命中归零。证据 `/szah/dataset-foundry-poc/logs/openmetadata-smoke/openmetadata-smoke-20260903T105314Z.json` 的 SHA-256 为 `c8d86e7ace3225cd990d2f8dde2d13cdc49687b0ecdbac1241f6b8bb8b7054a0`，结果为 `passed-and-cleaned`。
+23. 0.0.9 的 `server_migration_sql_logs` 已记录 9 条成功语句。实测证明删除其对象后，官方迁移器会跳过对应 DDL 并在后续 DML 失败；因此从变更前备份恢复，保留语句检查点，安装并启用 `pgcrypto` 1.3 和 `pg_trgm` 1.6 后完成迁移。旧 DROP 修复脚本已改为失败关闭，后续只能从迁移前备份恢复或保留一致检查点。
+24. 对现有 IAM 做了补充只读定位：139、170、226 的服务名/进程/监听和有限目录名检查发现 170:9210 的 `hqd-auth.jar`。其标准 discovery 路径返回统一业务 401 JSON，而非 OIDC metadata；包内可见自定义 Token/社交登录控制器，未发现 OIDC/OAuth2 Authorization Server 依赖。未读取配置、用户或 Token，未修改/重启服务；现有 `hqd-auth` 不能直接作为标准 IdP。
+25. 已提供 `deploy/scripts/oidc_readiness_check.py` 和 `docs/planning/oidc-poc-runbook.md`。工具只读校验 discovery/issuer、授权码流、S256、客户端认证方法、RS256、必要 Claim 及 JWKS RSA Key，不提交任何身份或客户端凭据；本地模拟 IdP 的 4 项回归和 139 上自建身份服务的真实 discovery/JWKS 门禁均通过。它不能替代两个产品自身的登录、角色和登出验收。
+26. PostgreSQL 主机核验确认 16.15 PGDG RHEL 8.10 布局。完整 contrib RPM 因目标系统缺少 Perl 5.26/Python 3.6 依赖未直接安装；使用官方 PGDG 签名和 SHA-256 校验后的精确 RPM，只安装原路径不存在的 `pgcrypto`、`pg_trgm` 文件并保存文件清单，未覆盖既有文件或重启 PostgreSQL。
+27. 变更前备份、失败状态取证备份、续跑检查点备份均保留在数据库主机受控目录并完成哈希/目录校验。生产前需由 DBA 将扩展文件正式纳入包管理、补丁、备份与恢复制度。
+28. 自建 `dataset-identity-service` 使用 Spring Boot 3.5.4、Spring Authorization Server 1.5.1 和 Spring Security 6.5.2。139 原生 PoC 固定 Amazon Corretto 21.0.12.9.1，最终 JAR SHA-256 为 `bbe58199f4ed8339d3e7d72bdc66da29611df28b7b67074b8fb25dece5408400`；使用 `platform_identity_poc` 独立数据库及无超级用户/建库/建角色/复制权限的专用账号。discovery/JWKS 与完整 OIDC 流证据分别保存在 `/szah/dataset-foundry-poc/logs/identity/oidc-readiness-poc.json`、`oidc-flow-poc.json`，均为 0600 且不含 Secret、Token、Cookie 或授权码。最终回读保留 1 个启用的 PoC 管理员和 3 个客户端；两轮共 13 条授权记录、2 个已禁用合成用户已精确删除，服务、19000/19001 监听均已停止，systemd 未启用，既有 hqd Java 进程未停止。
+29. 2026-09-04 按用户决定启用内网开发 HTTP 模式。新增默认关闭的 `DF_IAM_ALLOW_INSECURE_PRIVATE_NETWORK`，只接受 RFC1918 IPv4 字面地址，继续拒绝公网 IP、普通主机名和非 HTTP/HTTPS 协议。最终 JAR SHA-256 为 `afdaca1a960e83dcfb93bcf1c885a597ceb66a16244c9f277c705fd13761eea4`；issuer 为 `http://10.100.165.139:19000`，19000 仅绑定该内网地址，19001 仍仅绑定回环。从开发工作站回读 discovery 成功，完整 OIDC 流再次通过；本轮 3 条授权记录和 1 个合成用户已清理。服务保持运行但 systemd 未启用，既有 hqd Java 进程保持运行。
+30. 2026-09-04 部署 `dataset-platform-poc.service`：业务端口 19100 绑定 139 内网地址、管理端口 19101 仅绑定回环，复用身份服务的 Java 21，systemd 保持 disabled。Flyway V1/V2/V3、专用非超级用户数据库账号、Flowable 7.2.0 流程定义、受众校验和 PostgreSQL 幂等锁表均生效。`deploy/scripts/platform_supplier_e2e_smoke.py` 从仅有 `BUYER` 角色的合成申请人开始，真实完成申请创建、草稿修改、首版资质材料上传及幂等重放、提交、运营退回、补正、第二版材料、重提、审批、材料版本/状态历史查询，审批后重新登录并回读到 `SUPPLIER`；同轮还验证草稿撤回和提交后拒绝。证据为 `/szah/dataset-foundry-poc/logs/platform/supplier-e2e-latest.json`（0600），结果为 `passed`。批准申请 `f842ea9a-daaf-4975-a3e3-ea7af68fe67a` 为版本 10，数据库保留 11 条状态历史、11 条审计、12 条 Outbox 和 2 个追加材料版本；两个 MinIO 对象的 HEAD 大小/类型分别为 40/50 字节及 `image/png`，与数据库一致。首次提交快照未被补正资料覆盖；平台 `applicant_id` 与 IAM 用户 UUID/令牌 `sub` 一致，供应商 `identity_sync_status=SYNCED`，角色 Outbox 唯一且已发布。共享环境再次验证机器令牌访问身份 `/api/v1/me` 为 403、平台 `/api/v1/me` 为 200、供应商业务接口为 403；平台机器主体自检不等于交互用户权限。专用 PostgreSQL 集成测试 2/2 通过，两个并发线程以相同幂等键只产生一个申请。
+31. 一期源码纳管门已按用户补充约束执行：创建 `haomushaungtu/OpenMetadata`、`haomushaungtu/dataverse`、`haomushaungtu/data-juicer`、`haomushaungtu/presidio` 自有 Fork，分别以 Git Submodule 纳入 `Code/opensource`，固定提交为 `f329dd4a7e47134a2bd5a06af6181b0ee527ddd9`、`300d5b518c627047f68fd277e48f1a79c5eadbed`、`0e40a8659a759286d9bb3899cb3ef7f6fdbc624c`、`779dbd286d5ef4d1fbe2514275fb1bce358f2417`。每个子模块 `origin` 指向自有 Fork，`upstream` 指向官方仓库；Presidio 官方仓库现为 `data-privacy-stack/presidio`。Flowable 仍以 Maven 依赖和扩展接口使用，未引入引擎内核源码。
+
+## 3. 下一道门
+
+本报告只记录技术 PoC，不承担正式实施完成度口径；当前状态以 `implementation-board.md` 为准。需求与架构基线已批准，一期目标模式为 `ACTIVE`。供应商入驻首切片已通过共享内网集成门；OpenMetadata、接入与 Dataverse、质量测评工作流仍为 `QUEUED`。
+
+供应商首切片已完成并标记 `DONE`。下一步按看板推进 OpenMetadata 自有 Fork 的 Linux 完整构建、OIDC 与正式适配器首切片；接入与 Dataverse、质量测评随后启动各自产品切片。内网开发阶段域名/TLS 不构成阻塞，生产发布前仍必须补齐域名、TLS 和代理限速。生产专用存储账号、加密与生命周期、Kafka 高可用/ACL、恶意文件检测、网络隔离和恢复演练仍不得标记完成。

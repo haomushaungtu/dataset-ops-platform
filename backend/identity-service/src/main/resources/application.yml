@@ -1,0 +1,78 @@
+server:
+  address: ${DF_IAM_BIND_ADDRESS:127.0.0.1}
+  port: ${DF_IAM_PORT:19000}
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: ${DF_IAM_COOKIE_SECURE:true}
+        same-site: lax
+
+spring:
+  application:
+    name: dataset-identity-service
+  datasource:
+    url: ${DF_IAM_DB_URL}
+    username: ${DF_IAM_DB_USERNAME}
+    password: ${DF_IAM_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DF_IAM_DB_POOL_SIZE:10}
+      minimum-idle: 1
+      connection-timeout: 5000
+      validation-timeout: 3000
+  flyway:
+    enabled: true
+    validate-migration-naming: true
+  jackson:
+    default-property-inclusion: non_null
+
+identity:
+  issuer: ${DF_IAM_ISSUER}
+  allow-insecure-loopback: ${DF_IAM_ALLOW_INSECURE_LOOPBACK:false}
+  allow-insecure-private-network: ${DF_IAM_ALLOW_INSECURE_PRIVATE_NETWORK:false}
+  resource-audience: ${DF_IAM_RESOURCE_AUDIENCE:dataset-platform-api}
+  access-token-ttl: ${DF_IAM_ACCESS_TOKEN_TTL:5m}
+  refresh-token-ttl: ${DF_IAM_REFRESH_TOKEN_TTL:8h}
+  signing-key:
+    location: ${DF_IAM_SIGNING_KEYSTORE}
+    store-password: ${DF_IAM_SIGNING_STORE_PASSWORD}
+    alias: ${DF_IAM_SIGNING_KEY_ALIAS:dataset-identity}
+    key-password: ${DF_IAM_SIGNING_KEY_PASSWORD}
+  bootstrap-admin:
+    username: ${DF_IAM_BOOTSTRAP_ADMIN_USERNAME:}
+    password: ${DF_IAM_BOOTSTRAP_ADMIN_PASSWORD:}
+    email: ${DF_IAM_BOOTSTRAP_ADMIN_EMAIL:}
+    display-name: ${DF_IAM_BOOTSTRAP_ADMIN_DISPLAY_NAME:Platform Administrator}
+  clients:
+    openmetadata:
+      client-id: ${DF_IAM_OPENMETADATA_CLIENT_ID}
+      client-secret: ${DF_IAM_OPENMETADATA_CLIENT_SECRET}
+      redirect-uris: ${DF_IAM_OPENMETADATA_REDIRECT_URIS}
+      post-logout-redirect-uris: ${DF_IAM_OPENMETADATA_POST_LOGOUT_REDIRECT_URIS:}
+    dataverse:
+      client-id: ${DF_IAM_DATAVERSE_CLIENT_ID}
+      client-secret: ${DF_IAM_DATAVERSE_CLIENT_SECRET}
+      redirect-uris: ${DF_IAM_DATAVERSE_REDIRECT_URIS}
+      post-logout-redirect-uris: ${DF_IAM_DATAVERSE_POST_LOGOUT_REDIRECT_URIS:}
+    platform-service:
+      client-id: ${DF_IAM_PLATFORM_CLIENT_ID}
+      client-secret: ${DF_IAM_PLATFORM_CLIENT_SECRET}
+
+management:
+  server:
+    address: 127.0.0.1
+    port: ${DF_IAM_ADMIN_PORT:19001}
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+logging:
+  level:
+    org.springframework.security: INFO

@@ -1,0 +1,9 @@
+row_id,patient_token,cancer_type_code,modality,specimen_type,age_band,stage,diagnosis_date,collection_date,consent_scope
+ROW-001,PT-SYN-0001,C50,STRUCTURED,tissue,40-49,II,2026-01-12,2026-01-10,research
+ROW-002,PT-SYN-0002,C34,TEXT,blood,60-69,III,2026-02-03,2026-02-03,quality-evaluation
+ROW-003,PT-SYN-0003,C18,IMAGE,pathology-slide,50-59,I,2026-02-21,2026-02-20,research
+ROW-004,PT-SYN-0004,,STRUCTURED,tissue,30-39,II,2026-03-04,2026-03-03,research
+ROW-005,PT-SYN-0005,C22,UNKNOWN,blood,70-79,IV,2026-03-11,2026-03-10,quality-evaluation
+ROW-006,PT-SYN-0002,C34,TEXT,blood,60-69,III,2026-02-03,2026-02-03,quality-evaluation
+ROW-007,PT-SYN-0007,C16,STRUCTURED,tissue,50-59,II,2026-04-01,2026-04-03,research
+ROW-008,PT-SYN-0008,C53,IMAGE,pathology-slide,40-49,I,2026-04-18,2026-04-17,

@@ -1,0 +1,16 @@
+[submodule "opensource/openmetadata"]
+	path = opensource/openmetadata
+	url = https://github.com/haomushaungtu/OpenMetadata.git
+	update = checkout
+[submodule "opensource/dataverse"]
+	path = opensource/dataverse
+	url = https://github.com/haomushaungtu/dataverse.git
+	update = checkout
+[submodule "opensource/data-juicer"]
+	path = opensource/data-juicer
+	url = https://github.com/haomushaungtu/data-juicer.git
+	update = checkout
+[submodule "opensource/presidio"]
+	path = opensource/presidio
+	url = https://github.com/haomushaungtu/presidio.git
+	update = checkout

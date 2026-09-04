@@ -1,0 +1,28 @@
+spring:
+  datasource:
+    url: ${DF_PLATFORM_DB_URL}
+    username: ${DF_PLATFORM_DB_USERNAME}
+    password: ${DF_PLATFORM_DB_PASSWORD}
+  flyway:
+    enabled: true
+    validate-migration-naming: true
+
+flowable:
+  database-schema: workflow
+  database-schema-update: true
+  async-executor-activate: false
+  history-level: audit
+
+platform:
+  security:
+    issuer: http://127.0.0.1:19000
+    audience: dataset-platform-api
+
+management:
+  server:
+    port: 0
+
+logging:
+  level:
+    root: WARN
+    org.flowable: WARN

@@ -1,0 +1,16 @@
+# Dataverse 6.10.1 S3-compatible storage settings validated against MinIO.
+# Replace the endpoint and bucket before use. The bucket must be dedicated to Dataverse.
+-Ddataverse.files.storage-driver-id=s3poc
+-Ddataverse.files.s3poc.type=s3
+-Ddataverse.files.s3poc.label=Dataverse MinIO
+-Ddataverse.files.s3poc.bucket-name=replace-with-approved-dedicated-bucket
+-Ddataverse.files.s3poc.custom-endpoint-url=http://replace-with-minio-host:9000
+-Ddataverse.files.s3poc.custom-endpoint-region=us-east-1
+-Ddataverse.files.s3poc.profile=default
+-Ddataverse.files.s3poc.path-style-access=true
+-Ddataverse.files.s3poc.download-redirect=false
+-Ddataverse.files.s3poc.upload-redirect=false
+
+# Do not put access keys in JVM options or this file. For native Linux deployments,
+# use a 0600 AWS credentials file owned by the Payara OS account, a Payara password
+# alias, or another approved MicroProfile Config secret source.

@@ -1,0 +1,67 @@
+server:
+  address: ${DF_PLATFORM_BIND_ADDRESS:127.0.0.1}
+  port: ${DF_PLATFORM_PORT:19100}
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: dataset-platform-service
+  datasource:
+    url: ${DF_PLATFORM_DB_URL}
+    username: ${DF_PLATFORM_DB_USERNAME}
+    password: ${DF_PLATFORM_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DF_PLATFORM_DB_POOL_SIZE:15}
+      minimum-idle: 1
+      connection-timeout: 5000
+      validation-timeout: 3000
+  flyway:
+    enabled: true
+    validate-migration-naming: true
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+    default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
+flowable:
+  database-schema: workflow
+  database-schema-update: ${DF_PLATFORM_FLOWABLE_SCHEMA_UPDATE:false}
+  async-executor-activate: false
+  history-level: audit
+
+platform:
+  security:
+    issuer: ${DF_PLATFORM_OIDC_ISSUER}
+    audience: ${DF_PLATFORM_OIDC_AUDIENCE:dataset-platform-api}
+  identity-sync:
+    enabled: ${DF_PLATFORM_IDENTITY_SYNC_ENABLED:false}
+    base-url: ${DF_PLATFORM_IAM_BASE_URL:${DF_PLATFORM_OIDC_ISSUER}}
+    client-id: ${DF_PLATFORM_IAM_CLIENT_ID:}
+    client-secret: ${DF_PLATFORM_IAM_CLIENT_SECRET:}
+    initial-delay: ${DF_PLATFORM_IDENTITY_SYNC_INITIAL_DELAY:PT5S}
+    fixed-delay: ${DF_PLATFORM_IDENTITY_SYNC_FIXED_DELAY:PT5S}
+  storage:
+    minio:
+      enabled: ${DF_PLATFORM_MINIO_ENABLED:false}
+      endpoint: ${DF_PLATFORM_MINIO_ENDPOINT:}
+      access-key: ${DF_PLATFORM_MINIO_ACCESS_KEY:}
+      secret-key: ${DF_PLATFORM_MINIO_SECRET_KEY:}
+      bucket: ${DF_PLATFORM_MINIO_BUCKET:}
+      prefix: ${DF_PLATFORM_MINIO_PREFIX:}
+
+management:
+  server:
+    address: 127.0.0.1
+    port: ${DF_PLATFORM_ADMIN_PORT:19101}
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never

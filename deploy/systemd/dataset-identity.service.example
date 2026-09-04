@@ -1,0 +1,25 @@
+[Unit]
+Description=High-quality Dataset Platform Identity Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dfidentity
+Group=dfidentity
+WorkingDirectory=/szah/dataset-foundry/identity
+EnvironmentFile=/szah/dataset-foundry/identity/secrets/identity.env
+ExecStart=/szah/dataset-foundry/runtime/java-21/bin/java -XX:MaxRAMPercentage=60 -jar /szah/dataset-foundry/identity/app/dataset-identity-service.jar
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/szah/dataset-foundry/identity/logs
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

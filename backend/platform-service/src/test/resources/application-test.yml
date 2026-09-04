@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:platform-${random.uuid};DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  flyway:
+    enabled: true
+
+flowable:
+  database-schema: workflow
+  database-schema-update: true
+  async-executor-activate: false
+  history-level: audit
+
+platform:
+  security:
+    issuer: http://127.0.0.1:19000
+    audience: dataset-platform-api
+
+management:
+  server:
+    port: 0
+
+logging:
+  level:
+    root: WARN
+    org.flowable: WARN

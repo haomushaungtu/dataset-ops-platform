@@ -1,0 +1,42 @@
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:identity;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password: ""
+  flyway:
+    enabled: true
+
+identity:
+  issuer: http://127.0.0.1:19000
+  allow-insecure-loopback: true
+  allow-insecure-private-network: false
+  resource-audience: dataset-platform-api
+  bootstrap-admin:
+    username: test-admin
+    password: Test-Admin-Password-2026!
+    email: admin@example.test
+    display-name: Test Administrator
+  clients:
+    openmetadata:
+      client-id: openmetadata-test
+      client-secret: openmetadata-test-secret-2026
+      redirect-uris:
+        - http://127.0.0.1:18585/callback
+    dataverse:
+      client-id: dataverse-test
+      client-secret: dataverse-test-secret-2026
+      redirect-uris:
+        - http://127.0.0.1:18080/callback
+    platform-service:
+      client-id: platform-test
+      client-secret: platform-test-secret-2026
+
+management:
+  server:
+    port: 0

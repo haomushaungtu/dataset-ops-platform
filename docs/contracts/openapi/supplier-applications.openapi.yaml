@@ -1,0 +1,1042 @@
+openapi: 3.1.0
+info:
+  title: Dataset Foundry Supplier Applications API
+  version: 1.0.0
+  description: |
+    供应商入驻申请已实现端点的可执行契约。
+    本文档只描述 `backend/platform-service` 当前已实现的创建、查询、提交、通过、退回和拒绝操作。
+servers:
+  - url: /
+    description: 当前 platform-service 或统一网关同源地址
+tags:
+  - name: SupplierApplications
+    description: 供应商入驻申请
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/supplier-applications:
+    post:
+      tags: [SupplierApplications]
+      operationId: createSupplierApplication
+      summary: 创建供应商入驻草稿
+      description: |
+        任意已认证用户均可创建。申请人固定为访问令牌 `sub`。
+        幂等范围为“用户 + 创建操作”；同一用户使用相同幂等键和相同请求体时重放首次结果，请求体改变时返回 409。
+      x-roles: [authenticated]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSupplierApplicationRequest'
+            examples:
+              synthetic:
+                value:
+                  organization_name: 合成肿瘤数据研究中心
+                  unified_social_credit_code: 91310000SYNTH00001
+                  contact_name: 测试联系人
+                  contact_phone: '13800000000'
+      responses:
+        '201':
+          description: 草稿创建成功，包括幂等重放的首次结果
+          headers:
+            Location:
+              description: 新申请的资源路径
+              required: true
+              schema:
+                type: string
+                format: uri-reference
+            ETag:
+              $ref: '#/components/headers/ETag'
+            X-Request-Id:
+              $ref: '#/components/headers/ResponseRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierApplicationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-errors:
+        '400': [VALIDATION_FAILED, IDEMPOTENCY_KEY_REQUIRED]
+        '409': [IDEMPOTENCY_CONFLICT]
+
+  /api/v1/supplier-applications/{id}:
+    get:
+      tags: [SupplierApplications]
+      operationId: getSupplierApplication
+      summary: 查询供应商入驻申请
+      description: |
+        申请人可查询本人的申请；`OPERATOR` 和 `ADMIN` 可查询任意申请。
+      x-roles: [owner, OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: 查询成功
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            X-Request-Id:
+              $ref: '#/components/headers/ResponseRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierApplicationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-errors:
+        '403': [OBJECT_ACCESS_DENIED]
+        '404': [SUPPLIER_APPLICATION_NOT_FOUND]
+    put:
+      tags: [SupplierApplications]
+      operationId: updateSupplierApplication
+      summary: 更新供应商入驻申请
+      description: |
+        仅申请人可操作。当前状态必须为 `DRAFT` 或 `RETURNED`。
+        请求体为完整替换表达，必须同时提供机构名称、统一社会信用代码、联系人和联系电话。
+        成功更新不改变申请状态，资源版本增加 1。
+      x-roles: [owner]
+      x-allowed-states: [DRAFT, RETURNED]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSupplierApplicationRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SupplierApplicationCommandSucceeded'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-errors:
+        '400': [VALIDATION_FAILED, INVALID_VERSION, IDEMPOTENCY_KEY_REQUIRED]
+        '403': [OBJECT_ACCESS_DENIED]
+        '404': [SUPPLIER_APPLICATION_NOT_FOUND]
+        '409': [CURRENT_VERSION_CONFLICT, STATE_CONFLICT, IDEMPOTENCY_CONFLICT]
+
+  /api/v1/supplier-applications/{id}/materials:
+    post:
+      tags: [SupplierApplications]
+      operationId: uploadSupplierApplicationMaterial
+      summary: 上传供应商入驻资质材料
+      description: |
+        仅申请人可操作，当前申请状态必须为 `DRAFT` 或 `RETURNED`。
+        每次成功上传创建一个不可覆盖的材料版本，并将申请资源版本增加 1。
+        服务端只接受 PDF、PNG 和 JPEG，文件不得为空且不得超过 10 MiB（10485760 字节）。
+        响应只返回业务材料元数据，不返回 MinIO `object_key`、Bucket、预签名地址或存储凭据。
+      x-roles: [owner]
+      x-allowed-states: [DRAFT, RETURNED]
+      x-allowed-media-types: [application/pdf, image/png, image/jpeg]
+      x-max-file-size-bytes: 10485760
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadSupplierMaterialRequest'
+            encoding:
+              material_type:
+                contentType: text/plain
+              file:
+                contentType: application/pdf, image/png, image/jpeg
+      responses:
+        '201':
+          description: 新材料版本已创建
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            X-Request-Id:
+              $ref: '#/components/headers/ResponseRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierMaterialUploadResultResponse'
+        '200':
+          description: |
+            同一申请人、操作范围、幂等键和请求指纹的幂等重放；
+            返回首次上传的材料元数据和申请 ETag，不重复写入文件或数据库记录。
+          headers:
+            ETag:
+              $ref: '#/components/headers/ETag'
+            X-Request-Id:
+              $ref: '#/components/headers/ResponseRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierMaterialUploadResultResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+      x-errors:
+        '400':
+          - INVALID_VERSION
+          - IDEMPOTENCY_KEY_REQUIRED
+          - INVALID_MATERIAL_TYPE
+          - MATERIAL_FILE_REQUIRED
+        '403': [OBJECT_ACCESS_DENIED]
+        '404': [SUPPLIER_APPLICATION_NOT_FOUND]
+        '409': [CURRENT_VERSION_CONFLICT, VERSION_CONFLICT, STATE_CONFLICT, IDEMPOTENCY_CONFLICT]
+        '413': [MATERIAL_FILE_TOO_LARGE]
+        '415': [MATERIAL_FILE_TYPE_NOT_ALLOWED]
+        '503': [MATERIAL_STORAGE_UNAVAILABLE, MATERIAL_PROCESSING_FAILED]
+    get:
+      tags: [SupplierApplications]
+      operationId: listSupplierApplicationMaterials
+      summary: 查询供应商入驻资质材料版本
+      description: |
+        申请人可查询本人申请的全部材料版本；`OPERATOR` 和 `ADMIN` 可查询任意申请。
+        列表只包含业务元数据，不包含 MinIO `object_key`、Bucket、预签名地址或存储凭据。
+      x-roles: [owner, OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: 材料版本列表，无材料时 `data` 为空数组
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/ResponseRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierMaterialListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-errors:
+        '403': [OBJECT_ACCESS_DENIED]
+        '404': [SUPPLIER_APPLICATION_NOT_FOUND]
+
+  /api/v1/supplier-applications/{id}/history:
+    get:
+      tags: [SupplierApplications]
+      operationId: listSupplierApplicationHistory
+      summary: 查询供应商入驻申请状态历史
+      description: |
+        申请人可查询本人申请的全部状态迁移；`OPERATOR` 和 `ADMIN` 可查询任意申请。
+        结果按 `occurred_at`、`business_version` 和内部稳定键升序排列。
+        响应不包含资质文件内容、对象存储键、Bucket、URL 或凭据。
+      x-roles: [owner, OPERATOR, ADMIN]
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: 按发生时间和稳定次序排列的状态历史；无记录时 `data` 为空数组
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/ResponseRequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupplierApplicationHistoryListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+      x-errors:
+        '403': [OBJECT_ACCESS_DENIED]
+        '404': [SUPPLIER_APPLICATION_NOT_FOUND]
+
+  /api/v1/supplier-applications/{id}:submit:
+    post:
+      tags: [SupplierApplications]
+      operationId: submitSupplierApplication
+      summary: 提交或重新提交供应商入驻申请
+      description: |
+        仅申请人可操作。当前状态必须为 `DRAFT` 或 `RETURNED`。
+        成功时工作流会将申请经过 `SUBMITTED` 推进到 `UNDER_REVIEW`，因此返回版本比请求版本增加 2。
+      x-roles: [owner]
+      x-state-transition:
+        from: [DRAFT, RETURNED]
+        through: [SUBMITTED]
+        to: UNDER_REVIEW
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SupplierApplicationCommandSucceeded'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+      x-errors:
+        '400': [INVALID_VERSION, IDEMPOTENCY_KEY_REQUIRED]
+        '403': [OBJECT_ACCESS_DENIED]
+        '404': [SUPPLIER_APPLICATION_NOT_FOUND]
+        '409': [CURRENT_VERSION_CONFLICT, STATE_CONFLICT, IDEMPOTENCY_CONFLICT]
+        '422': [QUALIFICATION_MATERIAL_REQUIRED]
+
+  /api/v1/supplier-applications/{id}:withdraw:
+    post:
+      tags: [SupplierApplications]
+      operationId: withdrawSupplierApplication
+      summary: 撤回供应商入驻申请
+      description: |
+        仅申请人可操作。当前状态必须为 `DRAFT` 或 `RETURNED`。
+        从 `RETURNED` 撤回时同时取消已存在的 Flowable 流程实例；从 `DRAFT` 撤回时尚无流程实例。
+      x-roles: [owner]
+      x-state-transition:
+        from: [DRAFT, RETURNED]
+        to: WITHDRAWN
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          $ref: '#/components/responses/SupplierApplicationCommandSucceeded'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-errors:
+        '400': [INVALID_VERSION, IDEMPOTENCY_KEY_REQUIRED]
+        '403': [OBJECT_ACCESS_DENIED]
+        '404': [SUPPLIER_APPLICATION_NOT_FOUND]
+        '409': [CURRENT_VERSION_CONFLICT, STATE_CONFLICT, IDEMPOTENCY_CONFLICT]
+
+  /api/v1/supplier-applications/{id}:approve:
+    post:
+      tags: [SupplierApplications]
+      operationId: approveSupplierApplication
+      summary: 通过供应商入驻申请
+      description: |
+        仅 `OPERATOR` 可操作，当前状态必须为 `UNDER_REVIEW`。
+        必须填写非空审核意见。成功时创建 `ACTIVE` 供应商及申请人 `OWNER` 成员关系。
+      x-roles: [OPERATOR]
+      x-state-transition:
+        from: [UNDER_REVIEW]
+        to: APPROVED
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequiredReviewRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SupplierApplicationCommandSucceeded'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-errors:
+        '400': [VALIDATION_FAILED, REVIEW_COMMENT_REQUIRED, INVALID_VERSION, IDEMPOTENCY_KEY_REQUIRED]
+        '404': [SUPPLIER_APPLICATION_NOT_FOUND]
+        '409': [CURRENT_VERSION_CONFLICT, STATE_CONFLICT, IDEMPOTENCY_CONFLICT]
+
+  /api/v1/supplier-applications/{id}:return:
+    post:
+      tags: [SupplierApplications]
+      operationId: returnSupplierApplication
+      summary: 退回供应商入驻申请
+      description: |
+        仅 `OPERATOR` 可操作，当前状态必须为 `UNDER_REVIEW`。
+        必须填写非空审核意见。
+      x-roles: [OPERATOR]
+      x-state-transition:
+        from: [UNDER_REVIEW]
+        to: RETURNED
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequiredReviewRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SupplierApplicationCommandSucceeded'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-errors:
+        '400': [VALIDATION_FAILED, REVIEW_COMMENT_REQUIRED, INVALID_VERSION, IDEMPOTENCY_KEY_REQUIRED]
+        '404': [SUPPLIER_APPLICATION_NOT_FOUND]
+        '409': [CURRENT_VERSION_CONFLICT, STATE_CONFLICT, IDEMPOTENCY_CONFLICT]
+
+  /api/v1/supplier-applications/{id}:reject:
+    post:
+      tags: [SupplierApplications]
+      operationId: rejectSupplierApplication
+      summary: 拒绝供应商入驻申请
+      description: |
+        仅 `OPERATOR` 可操作，当前状态必须为 `UNDER_REVIEW`。
+        必须填写非空审核意见。
+      x-roles: [OPERATOR]
+      x-state-transition:
+        from: [UNDER_REVIEW]
+        to: REJECTED
+      parameters:
+        - $ref: '#/components/parameters/ApplicationId'
+        - $ref: '#/components/parameters/IfMatch'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequiredReviewRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/SupplierApplicationCommandSucceeded'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+      x-errors:
+        '400': [VALIDATION_FAILED, REVIEW_COMMENT_REQUIRED, INVALID_VERSION, IDEMPOTENCY_KEY_REQUIRED]
+        '404': [SUPPLIER_APPLICATION_NOT_FOUND]
+        '409': [CURRENT_VERSION_CONFLICT, STATE_CONFLICT, IDEMPOTENCY_CONFLICT]
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        由统一身份服务签发的 OAuth 2.0 访问令牌。
+        platform-service 校验 issuer 和 `dataset-platform-api` audience，角色来自 `roles` claim。
+
+  parameters:
+    ApplicationId:
+      name: id
+      in: path
+      required: true
+      description: 供应商入驻申请 UUID
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: |
+        由客户端为一次逻辑命令生成，最长 128 字符。
+        幂等记录按“令牌 `sub` + 操作范围 + 幂等键”隔离。
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: '.*\S.*'
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: |
+        上次读取或变更响应的数值版本 ETag，例如 `"2"`。
+        弱 ETag `W/"2"` 也被当前实现接受。
+      schema:
+        type: string
+        pattern: '^(?:W/)?"[0-9]+"$'
+        examples: ['"0"', 'W/"2"']
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      description: |
+        可选调用链请求标识。缺失、全空白或超过 128 字符时由服务端重新生成。
+      schema:
+        type: string
+        maxLength: 128
+
+  headers:
+    ETag:
+      description: 当前资源的数值乐观锁版本，以强 ETag 形式返回
+      required: true
+      schema:
+        type: string
+        pattern: '^"[0-9]+"$'
+        example: '"0"'
+    ResponseRequestId:
+      description: 服务端接受或生成的请求标识
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+
+  schemas:
+    CreateSupplierApplicationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - organization_name
+        - unified_social_credit_code
+        - contact_name
+        - contact_phone
+      properties:
+        organization_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: '.*\S.*'
+        unified_social_credit_code:
+          type: string
+          pattern: '^[0-9A-Z]{18}$'
+        contact_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: '.*\S.*'
+        contact_phone:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: '.*\S.*'
+
+    UpdateSupplierApplicationRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - organization_name
+        - unified_social_credit_code
+        - contact_name
+        - contact_phone
+      properties:
+        organization_name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          pattern: '.*\S.*'
+        unified_social_credit_code:
+          type: string
+          pattern: '^[0-9A-Z]{18}$'
+        contact_name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          pattern: '.*\S.*'
+        contact_phone:
+          type: string
+          minLength: 1
+          maxLength: 40
+          pattern: '.*\S.*'
+
+    RequiredReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [comment]
+      properties:
+        comment:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          pattern: '.*\S.*'
+
+    UploadSupplierMaterialRequest:
+      type: object
+      additionalProperties: false
+      required: [material_type, file]
+      properties:
+        material_type:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: '^[A-Z][A-Z0-9_]{1,63}$'
+          description: |
+            稳定的业务材料类型代码，例如 `BUSINESS_LICENSE`。
+            同一 `material_type` 可多次上传，每次产生递增的 `version_no`。
+          examples: [BUSINESS_LICENSE, QUALIFICATION_CERTIFICATE]
+        file:
+          type: string
+          format: binary
+          description: |
+            非空 PDF、PNG 或 JPEG 文件；允许的客户端媒体类型为
+            `application/pdf`、`image/png`、`image/jpeg`，最大 10485760 字节。
+          x-allowed-media-types: [application/pdf, image/png, image/jpeg]
+          x-max-size-bytes: 10485760
+
+    SupplierMaterial:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - material_type
+        - version_no
+        - original_file_name
+        - media_type
+        - size_bytes
+        - sha256
+        - uploaded_by
+        - uploaded_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        material_type:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: '^[A-Z][A-Z0-9_]{1,63}$'
+          readOnly: true
+        version_no:
+          type: integer
+          format: int64
+          minimum: 1
+          readOnly: true
+        original_file_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          readOnly: true
+        media_type:
+          type: string
+          enum: [application/pdf, image/png, image/jpeg]
+          readOnly: true
+        size_bytes:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 10485760
+          readOnly: true
+          description: 文件字节数
+        sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          readOnly: true
+        uploaded_by:
+          type: string
+          maxLength: 128
+          readOnly: true
+        uploaded_at:
+          type: string
+          format: date-time
+          readOnly: true
+      description: |
+        可对外返回的材料元数据。该模型故意不定义 `object_key`、Bucket、内部 URL 和任何存储凭据字段。
+
+    SupplierMaterialUploadResult:
+      type: object
+      additionalProperties: false
+      required: [material, application_version]
+      properties:
+        material:
+          $ref: '#/components/schemas/SupplierMaterial'
+        application_version:
+          type: integer
+          format: int64
+          minimum: 1
+          readOnly: true
+
+    SupplierMaterialUploadResultResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: '#/components/schemas/SupplierMaterialUploadResult'
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+
+    SupplierMaterialListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SupplierMaterial'
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+
+    SupplierApplicationHistoryEntry:
+      type: object
+      additionalProperties: false
+      required:
+        - to_status
+        - actor_id
+        - request_id
+        - business_version
+        - occurred_at
+      properties:
+        from_status:
+          allOf:
+            - $ref: '#/components/schemas/SupplierApplicationStatus'
+          readOnly: true
+          description: 创建记录的原状态为空，该字段会被省略
+        to_status:
+          allOf:
+            - $ref: '#/components/schemas/SupplierApplicationStatus'
+          readOnly: true
+        actor_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          readOnly: true
+        reason:
+          type: string
+          maxLength: 2000
+          readOnly: true
+          description: 无备注或原因时该字段会被省略
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          readOnly: true
+        business_version:
+          type: integer
+          format: int64
+          minimum: 0
+          readOnly: true
+        occurred_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    SupplierApplicationHistoryListResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SupplierApplicationHistoryEntry'
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+
+    SupplierApplicationStatus:
+      type: string
+      enum:
+        - DRAFT
+        - SUBMITTED
+        - UNDER_REVIEW
+        - RETURNED
+        - APPROVED
+        - REJECTED
+        - WITHDRAWN
+
+    SupplierApplication:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - application_no
+        - applicant_id
+        - organization_name
+        - unified_social_credit_code
+        - contact_name
+        - contact_phone
+        - status
+        - version
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        application_no:
+          type: string
+          maxLength: 40
+          pattern: '^SUP-[0-9]{8}-[0-9A-F]{8}$'
+          readOnly: true
+        applicant_id:
+          type: string
+          maxLength: 128
+          readOnly: true
+        organization_name:
+          type: string
+          maxLength: 200
+          readOnly: true
+        unified_social_credit_code:
+          type: string
+          pattern: '^[0-9A-Z]{18}$'
+          readOnly: true
+        contact_name:
+          type: string
+          maxLength: 100
+          readOnly: true
+        contact_phone:
+          type: string
+          maxLength: 40
+          readOnly: true
+        status:
+          allOf:
+            - $ref: '#/components/schemas/SupplierApplicationStatus'
+          readOnly: true
+        process_instance_id:
+          type: string
+          maxLength: 128
+          readOnly: true
+          description: 提交并启动 Flowable 流程后出现；为空时由 JSON 序列化器省略
+        review_comment:
+          type: string
+          maxLength: 2000
+          readOnly: true
+          description: 最近一次审核意见；为空时由 JSON 序列化器省略
+        version:
+          type: integer
+          format: int64
+          minimum: 0
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+
+    SupplierApplicationResponse:
+      type: object
+      additionalProperties: false
+      required: [data, request_id]
+      properties:
+        data:
+          $ref: '#/components/schemas/SupplierApplication'
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+
+    ErrorDetail:
+      type: object
+      additionalProperties: true
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message, details, request_id]
+      properties:
+        code:
+          type: string
+          enum:
+            - VALIDATION_FAILED
+            - IDEMPOTENCY_KEY_REQUIRED
+            - INVALID_VERSION
+            - REVIEW_COMMENT_REQUIRED
+            - INVALID_MATERIAL_TYPE
+            - MATERIAL_FILE_REQUIRED
+            - MATERIAL_FILE_TOO_LARGE
+            - MATERIAL_FILE_TYPE_NOT_ALLOWED
+            - MATERIAL_STORAGE_UNAVAILABLE
+            - MATERIAL_PROCESSING_FAILED
+            - QUALIFICATION_MATERIAL_REQUIRED
+            - SUPPLIER_APPLICATION_NOT_FOUND
+            - OBJECT_ACCESS_DENIED
+            - CURRENT_VERSION_CONFLICT
+            - VERSION_CONFLICT
+            - STATE_CONFLICT
+            - IDEMPOTENCY_CONFLICT
+        message:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+        request_id:
+          type: string
+          minLength: 1
+          maxLength: 128
+
+  responses:
+    SupplierApplicationCommandSucceeded:
+      description: 命令执行成功，包括幂等重放的首次结果
+      headers:
+        ETag:
+          $ref: '#/components/headers/ETag'
+        X-Request-Id:
+          $ref: '#/components/headers/ResponseRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SupplierApplicationResponse'
+    BadRequest:
+      description: 请求头、路径参数或请求体无效
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/ResponseRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 缺少访问令牌或访问令牌无效
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/ResponseRequestId'
+    Forbidden:
+      description: |
+        已认证，但缺少所需角色或不满足对象所有权。
+        对象所有权失败时响应体错误码为 `OBJECT_ACCESS_DENIED`；方法级角色拒绝可不返回 JSON 响应体。
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/ResponseRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: 供应商入驻申请不存在（`SUPPLIER_APPLICATION_NOT_FOUND`）
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/ResponseRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: |
+        状态、当前版本或幂等键冲突。可能的错误码由具体操作的 `x-errors` 列出。
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/ResponseRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: 请求语法正确，但不满足当前业务前置条件
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/ResponseRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    PayloadTooLarge:
+      description: 上传的资质材料超过 10 MiB 上限
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/ResponseRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnsupportedMediaType:
+      description: 资质材料的实际文件签名不是 PDF、PNG 或 JPEG
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/ResponseRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ServiceUnavailable:
+      description: 资质材料处理或对象存储暂不可用
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/ResponseRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

@@ -1,0 +1,12 @@
+# OpenSearch 3.4.0 native Linux PoC profile.
+# This loopback-only, security-plugin-free profile must not be used in production.
+cluster.name: dataset-foundry-poc
+node.name: opensearch-poc-1
+path.data: /szah/dataset-foundry-poc/data/opensearch
+path.logs: /szah/dataset-foundry-poc/logs/opensearch
+network.host: 127.0.0.1
+http.port: 19200
+transport.port: 19300
+discovery.type: single-node
+action.destructive_requires_name: true
+bootstrap.memory_lock: false
