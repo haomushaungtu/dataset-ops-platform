@@ -6,6 +6,11 @@
 
 供应商入驻：创建/修改草稿、MinIO 资质材料追加版本、材料幂等重放、提交前材料门禁、不可变快照、Flowable 审核、退回修改后重提、通过、拒绝、撤回，以及申请/材料/状态历史查询。所有命令包含数据库幂等、`If-Match` 乐观锁、状态历史、追加审计与同事务 Outbox。通过审核会创建 `ACTIVE` 供应商及所有者关系；身份 Outbox 消费器使用 `platform.internal` 服务令牌调用身份服务，成功授予 `SUPPLIER` 角色后把同步状态更新为 `SYNCED`，失败则按退避策略重试。
 
+OpenMetadata 可靠投递：业务服务调用 `OpenMetadataSyncOutboxService.enqueue(...)` 时，待同步映射和 Outbox 事件加入调用方的 PostgreSQL 事务。独立调度器以 `FOR UPDATE SKIP LOCKED` 领取事件，使用平台机器令牌调用正式 OpenMetadata adapter；成功响应经业务 ID/FQN 校验后把 `external_id`、`external_fqn`、外部版本和同步时间原子写入 `integration.external_resource_mapping`。远端重复调用遵循 adapter 的幂等 upsert 契约；瞬时故障采用有界指数退避，确定性 4xx 或耗尽重试会进入可查询的终态。每次投递结果追加到 `integration.outbox_delivery_attempt`，运营员或管理员可查询：
+
+- `GET /api/v1/integrations/openmetadata/deliveries/{eventId}`
+- `GET /api/v1/integrations/openmetadata/deliveries/failed?limit=50`
+
 ## 构建与测试
 
 ```powershell
@@ -34,6 +39,15 @@
 - `DF_PLATFORM_IAM_BASE_URL`
 - `DF_PLATFORM_IAM_CLIENT_ID`
 - `DF_PLATFORM_IAM_CLIENT_SECRET`
+- `DF_PLATFORM_OPENMETADATA_SYNC_ENABLED`，默认 `false`；共享集成环境显式开启
+- `DF_PLATFORM_OPENMETADATA_ADAPTER_BASE_URL`，默认 `http://127.0.0.1:19110`
+- `DF_PLATFORM_IAM_TOKEN_URI`，统一身份服务的 token endpoint
+- `DF_PLATFORM_OPENMETADATA_CLIENT_ID`
+- `DF_PLATFORM_OPENMETADATA_CLIENT_SECRET`
+- `DF_PLATFORM_OPENMETADATA_SCOPE`，默认 `platform.internal`
+- `DF_PLATFORM_OPENMETADATA_MAX_ATTEMPTS`，默认 `6`
+- `DF_PLATFORM_OPENMETADATA_RETRY_BASE_DELAY`，默认 `PT2S`
+- `DF_PLATFORM_OPENMETADATA_RETRY_MAX_DELAY`，默认 `PT5M`
 - `DF_PLATFORM_MINIO_ENABLED`，默认 `false`；启用时配置以下全部 MinIO 项
 - `DF_PLATFORM_MINIO_ENDPOINT`
 - `DF_PLATFORM_MINIO_ACCESS_KEY`
@@ -46,4 +60,5 @@
 ## 已知集成门
 
 - Kafka Outbox 发布器尚未实现，Outbox 事件目前可靠落库但不会自动发布。
+- OpenMetadata 投递已通过本地事务、重放、重试耗尽、审计和权限测试，但尚未部署到共享 PostgreSQL/OpenMetadata 环境；机器账号在生产前仍须收敛为最小权限。
 - 共享开发环境当前复用 `dataset-landing/phase1/platform/supplier-qualifications`；生产仍需专用最小权限账号、恶意文件检测、加密和生命周期策略。

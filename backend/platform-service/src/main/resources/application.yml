@@ -43,6 +43,18 @@ platform:
     client-secret: ${DF_PLATFORM_IAM_CLIENT_SECRET:}
     initial-delay: ${DF_PLATFORM_IDENTITY_SYNC_INITIAL_DELAY:PT5S}
     fixed-delay: ${DF_PLATFORM_IDENTITY_SYNC_FIXED_DELAY:PT5S}
+  openmetadata-sync:
+    enabled: ${DF_PLATFORM_OPENMETADATA_SYNC_ENABLED:false}
+    adapter-base-url: ${DF_PLATFORM_OPENMETADATA_ADAPTER_BASE_URL:http://127.0.0.1:19110}
+    token-uri: ${DF_PLATFORM_IAM_TOKEN_URI:${DF_PLATFORM_OIDC_ISSUER}/oauth2/token}
+    client-id: ${DF_PLATFORM_OPENMETADATA_CLIENT_ID:}
+    client-secret: ${DF_PLATFORM_OPENMETADATA_CLIENT_SECRET:}
+    scope: ${DF_PLATFORM_OPENMETADATA_SCOPE:platform.internal}
+    initial-delay: ${DF_PLATFORM_OPENMETADATA_INITIAL_DELAY:PT5S}
+    fixed-delay: ${DF_PLATFORM_OPENMETADATA_FIXED_DELAY:PT5S}
+    max-attempts: ${DF_PLATFORM_OPENMETADATA_MAX_ATTEMPTS:6}
+    retry-base-delay: ${DF_PLATFORM_OPENMETADATA_RETRY_BASE_DELAY:PT2S}
+    retry-max-delay: ${DF_PLATFORM_OPENMETADATA_RETRY_MAX_DELAY:PT5M}
   storage:
     minio:
       enabled: ${DF_PLATFORM_MINIO_ENABLED:false}
