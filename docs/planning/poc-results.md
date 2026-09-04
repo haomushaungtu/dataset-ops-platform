@@ -65,6 +65,6 @@
 
 ## 3. 下一道门
 
-本报告只记录技术 PoC，不承担正式实施完成度口径；当前状态以 `implementation-board.md` 为准。需求与架构基线已批准，一期目标模式为 `ACTIVE`。供应商入驻首切片已完成；OpenMetadata 已进入 `IN_PROGRESS` 并通过机器认证与元数据适配器的共享内网技术切片，接入与 Dataverse、质量测评工作流仍为 `QUEUED`。
+本报告只记录技术 PoC，不承担正式实施完成度口径；当前状态以 `implementation-board.md` 为准。需求与架构基线已批准，一期目标模式为 `ACTIVE`。供应商入驻首切片已完成；OpenMetadata 已进入 `IN_PROGRESS` 并通过机器认证与元数据适配器的共享内网技术切片；质量测评已进入 `IN_PROGRESS` 并形成真实引擎本地执行切片；接入与 Dataverse 仍为 `QUEUED`。
 
-供应商首切片已完成并标记 `DONE`。OpenMetadata 下一步不再重复机器令牌与五属性写入 PoC，而是完成 Linux 同提交后端/UI 构建、交互式浏览器 OIDC、角色/组映射、issuer/audience/auth_version、禁用传播和 RP logout 验收，并将适配器服务账号收敛到最小权限；平台侧还须用 Outbox 驱动可重试的正式元数据同步。接入与 Dataverse、质量测评随后启动各自产品切片。内网开发阶段域名/TLS 不构成阻塞，生产发布前仍必须补齐域名、TLS 和代理限速。生产专用存储账号、加密与生命周期、Kafka 高可用/ACL、恶意文件检测、网络隔离和恢复演练仍不得标记完成。
+供应商首切片已完成并标记 `DONE`。OpenMetadata 下一步不再重复机器令牌与五属性写入 PoC，而是完成 Linux 同提交后端/UI 构建、交互式浏览器 OIDC、角色/组映射、issuer/audience/auth_version、禁用传播和 RP logout 验收，并将适配器服务账号收敛到最小权限；平台 Outbox 可靠投递代码已实现，仍需共享 PostgreSQL/OpenMetadata 真实联调。质量测评下一步把本地只读执行器接到平台签发的对象版本引用、共享 PostgreSQL/MinIO 与 139 离线原生运行。接入与 Dataverse 随后启动产品切片。内网开发阶段域名/TLS 不构成阻塞，生产发布前仍必须补齐域名、TLS 和代理限速。生产专用存储账号、加密与生命周期、Kafka 高可用/ACL、恶意文件检测、网络隔离和恢复演练仍不得标记完成。

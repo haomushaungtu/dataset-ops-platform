@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dataset-quality-service"
+version = "0.1.0"
+description = "Phase-one read-only quality execution service for controlled dataset versions."
+requires-python = ">=3.10,<3.15"
+dependencies = [
+  "presidio-analyzer==2.2.364",
+  "py-data-juicer==1.5.5",
+]
+
+[project.scripts]
+dataset-quality = "quality_service.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/quality_service"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

@@ -63,8 +63,8 @@
 
 - `ACTIVE`：目标模式已经开启，实施状态以 `implementation-board.md` 为准。
 - `DONE`：供应商首切片已在共享 PostgreSQL、MinIO、真实 IAM 和 139 原生服务完成 SUP-001 至 SUP-005，包括稳定 OIDC `sub`、受限角色同步、机器令牌隔离、数据库并发幂等、两版材料、退回补正、拒绝、撤回和历史查询。
-- `IN_PROGRESS`：OpenMetadata 已完成自有 Fork/Submodule/固定提交的源码纳管，开始正式产品实现。
-- `QUEUED`：接入与 Dataverse、质量测评尚未开始正式产品实现；完成源码纳管本身不等于业务切片开工。
+- `IN_PROGRESS`：OpenMetadata 已完成自有 Fork/Submodule/固定提交的源码纳管并开始正式产品实现；质量测评已形成真实调用固定 Data-Juicer/Presidio 源码的首个本地执行切片，但尚未完成平台与共享环境集成。
+- `QUEUED`：接入与 Dataverse 尚未开始正式产品实现；完成源码纳管本身不等于业务切片开工。
 - 当前共享工作区尚未建立本轮独立 Worktree，且多数工程成果仍未形成已跟踪基线；总控在并行写入前必须固化基线和目录 Owner。
 
 ## 5. 变更控制

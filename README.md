@@ -16,7 +16,7 @@
 - `frontend/platform-web`：统一门户和运营页面（基线评审后创建）。
 - `backend/identity-service`：自建统一身份服务，提供 OIDC 授权码 + PKCE、服务间客户端凭据、用户/角色管理和审计。
 - `backend/platform-service`：一期模块化单体业务服务；首个供应商入驻纵向切片已实现并通过本地集成测试。
-- `algorithm/quality-service`：质量检测编排和癌症专项规则（基线评审后创建）。
+- `algorithm/quality-service`：质量检测编排和癌症专项规则；`CANCER_TABULAR_V1` 首个真实引擎执行切片正在实现。
 - `integrations`：OpenMetadata、Dataverse、Flowable、身份等适配器（按实现创建）。
 - `opensource/openmetadata`、`opensource/dataverse`、`opensource/data-juicer`、`opensource/presidio`：项目自有 Fork 的 Git Submodule；父仓库固定批准提交，定制必须提交回对应 Fork。
 - `deploy`：Linux 原生进程、systemd、反向代理和数据库初始化配置（不含密钥；当前阶段不使用容器）。

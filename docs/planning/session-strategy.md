@@ -1,6 +1,6 @@
 # 一期多会话开发计划
 
-需求与架构基线 v0.1 已于 2026-09-03 批准，一期目标模式现为 `ACTIVE`。当前供应商入驻首切片已实现并通过本地测试，其余 OpenMetadata、接入与 Dataverse、质量测评工作流为 `QUEUED`；不得把已完成的技术 PoC 误记为产品实现。实时状态与验收门见 `implementation-board.md`。
+需求与架构基线 v0.1 已于 2026-09-03 批准，一期目标模式现为 `ACTIVE`。供应商入驻首切片已完成；OpenMetadata 与质量测评已进入 `IN_PROGRESS`，接入与 Dataverse 仍为 `QUEUED`。不得把局部技术验证误记为完整产品实现，实时状态与验收门见 `implementation-board.md`。
 
 ## 1. 分支和目录所有权
 
