@@ -36,3 +36,5 @@ dataset-quality run --request request.json --database quality-tasks.db --workspa
 ```
 
 当前阶段不把该执行器误记为完整产品质量工作流：平台侧任务受理、人工抽样复核、整改反馈、复测状态机、报告对象存储和 OpenMetadata 回写仍需后续纵向集成。
+
+139 原生 Linux PoC 的固定运行时、源码制品、离线边界与证据见 `deploy/runbooks/quality-native-poc.md`。
