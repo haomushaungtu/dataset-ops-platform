@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.metadata
 import inspect
 import json
 from dataclasses import dataclass
@@ -13,6 +12,7 @@ from presidio_analyzer.nlp_engine import NoOpNlpEngine
 
 
 PRESIDIO_COMMIT = "779dbd286d5ef4d1fbe2514275fb1bce358f2417"
+PRESIDIO_VERSION = "2.2.364"
 ANALYZER_ENGINE_SHA256 = "28a1ad308244634764769009c6618332c4bf7c6ea1078471d90f66653db6d0ca"
 SELF_TEST_SHA256 = "918f98f3e0bb5892c109d039439f1d1ff0a900ec5b5db421bf07dfaa3a649473"
 
@@ -141,7 +141,7 @@ class PresidioMedicalAdapter:
                     findings.extend(self._scan(str(row.get("row_id", "")), field, str(value), correlation_id))
         return {
             "engine": "presidio-analyzer",
-            "engine_version": importlib.metadata.version("presidio-analyzer"),
+            "engine_version": PRESIDIO_VERSION,
             "source_commit": PRESIDIO_COMMIT,
             "class_fqn": "presidio_analyzer.analyzer_engine.AnalyzerEngine",
             "module_sha256": self.module_sha256,

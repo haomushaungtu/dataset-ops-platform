@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.metadata
 import inspect
 import json
 from pathlib import Path
@@ -9,6 +8,7 @@ from typing import Iterable, Mapping
 
 from data_juicer.core.data import NestedDataset
 from data_juicer.ops.deduplicator.document_deduplicator import DocumentDeduplicator
+from data_juicer import __version__ as data_juicer_version
 
 
 DATA_JUICER_COMMIT = "0e40a8659a759286d9bb3899cb3ef7f6fdbc624c"
@@ -81,7 +81,7 @@ class DataJuicerAdapter:
                 raise DataJuicerExecutionError("source-mutated-during-data-juicer-run")
         return {
             "engine": "data-juicer",
-            "engine_version": importlib.metadata.version("py-data-juicer"),
+            "engine_version": data_juicer_version,
             "source_commit": DATA_JUICER_COMMIT,
             "class_fqn": "data_juicer.ops.deduplicator.document_deduplicator.DocumentDeduplicator",
             "module_sha256": module_sha256,
